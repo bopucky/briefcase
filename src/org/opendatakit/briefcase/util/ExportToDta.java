@@ -16,67 +16,6 @@
 
 package org.opendatakit.briefcase.util;
 
-/** BEFORE
-import java.io.ByteArrayInputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileOutputStream;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.io.OutputStreamWriter;
-import java.io.StringWriter;
-import java.io.UnsupportedEncodingException;
-import java.lang.reflect.InvocationTargetException;
-import java.math.BigDecimal;
-import java.security.InvalidAlgorithmParameterException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.text.DateFormat;
-import java.util.*;
-import java.util.logging.Logger;
-import java.util.HashMap;
-
-import javax.crypto.Cipher;
-import javax.crypto.CipherInputStream;
-import javax.crypto.NoSuchPaddingException;
-import javax.xml.xpath.XPath;
-import javax.xml.xpath.XPathExpression;
-import javax.xml.xpath.XPathExpressionException;
-import javax.xml.xpath.XPathFactory;
-
-import com.sun.javaws.jnl.XMLFormat;
-import com.sun.org.apache.xpath.internal.operations.Bool;
-import org.apache.commons.codec.binary.Base64;
-import org.apache.commons.io.FileUtils;
-
-import org.bushe.swing.event.EventBus;
-import org.javarosa.core.model.Constants;
-import org.javarosa.core.model.SelectChoice;
-import org.javarosa.core.model.instance.AbstractTreeElement;
-import org.javarosa.core.model.instance.TreeElement;
-import org.kxml2.kdom.Document;
-import org.kxml2.kdom.Element;
-import org.kxml2.kdom.Node;
-import org.kxml2.io.KXmlSerializer;
-import org.opendatakit.briefcase.model.BriefcaseFormDefinition;
-import org.opendatakit.briefcase.model.CryptoException;
-import org.opendatakit.briefcase.model.ExportProgressEvent;
-import org.opendatakit.briefcase.model.FileSystemException;
-import org.opendatakit.briefcase.model.ParsingException;
-import org.opendatakit.briefcase.model.TerminationFuture;
-import org.opendatakit.briefcase.util.XmlManipulationUtils.FormInstanceMetadata;
-
-import org.javarosa.core.model.FormDef;
-import org.javarosa.core.model.QuestionDef;
-//import org.javarosa.model.xform.XFormsModule;
-import org.javarosa.xform.parse.XFormParser;
-import sun.text.normalizer.UCharacter;
-import java.lang.Math;
-
-import java.lang.reflect.Method;
-**/
-
-/** NOW **/
 import org.apache.commons.codec.binary.Base64;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
@@ -119,7 +58,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** DTA related imports**/
+/** STATA export related imports**/
 //import com.sun.javaws.jnl.XMLFormat;
 //import sun.text.normalizer.UCharacter;
 import org.javarosa.core.model.FormDef;
