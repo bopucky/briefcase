@@ -56,7 +56,7 @@ public class JavaRosaParserWrapper extends BaseFormParserForJavaRosa {
      return submissionElementDefn.formId +
      "[@version=" + submissionElementDefn.modelVersion +
      " and @uiVersion=null" +
-     "]/" + ( isFileEncryptedForm() ? "data" : submissionElement.getName()) + 
+     "]/" + ( isFileEncryptedForm() ? "data" : getSubmissionElement().getName()) +
      "[@key=" + uri + "]";
   }
 
