@@ -28,6 +28,7 @@ import org.apache.commons.io.FileUtils;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.bushe.swing.event.EventBus;
+import org.javarosa.core.model.FormDef;
 import org.javarosa.core.model.instance.TreeElement;
 import org.opendatakit.aggregate.exception.ODKIncompleteSubmissionData;
 import org.opendatakit.aggregate.parser.BaseFormParserForJavaRosa.DifferenceResult;
@@ -407,5 +408,9 @@ public class BriefcaseFormDefinition implements IFormDefinition {
     String versionString = getVersionString();
 
     return id.hashCode() + 3 * (versionString == null ? -123121 : versionString.hashCode());
+  }
+
+  public FormDef getFormDefn(){
+    return formDefn.getFormDefn();
   }
 }

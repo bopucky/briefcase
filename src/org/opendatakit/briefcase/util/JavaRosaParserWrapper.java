@@ -6,6 +6,7 @@ import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 
+import org.javarosa.core.model.FormDef;
 import org.javarosa.core.model.instance.TreeElement;
 import org.opendatakit.aggregate.exception.ODKIncompleteSubmissionData;
 import org.opendatakit.aggregate.form.XFormParameters;
@@ -99,5 +100,9 @@ public class JavaRosaParserWrapper extends BaseFormParserForJavaRosa {
   public String getMD5Hash() {
      return md5Hash;
   }
+
+  public FormDef getFormDefn(){
+        return rootJavaRosaFormDef;
+    }
 
 }

@@ -145,7 +145,9 @@ public class ExportAction {
     ITransformFormAction action;
     if (outputType == ExportType.CSV) {
       action = new ExportToCsv(outputDir, lfd, terminationFuture, start, end);
-    } else {
+    } else if (outputType == ExportType.STATA) {
+      action = new ExportToDta(outputDir, lfd, terminationFuture);
+    }  else {
       throw new IllegalStateException("outputType not recognized");
     }
 

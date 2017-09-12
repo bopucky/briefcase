@@ -17,8 +17,8 @@
 package org.opendatakit.briefcase.model;
 
 public enum ExportType {
-	CSV(".csv and media files"); // CSV output type
-	
+	CSV(".csv and media files"),STATA(".xml stata type and media files"); // CSV, dta output types
+
 	private String displayString;
 	
 	ExportType(String displayString) {
