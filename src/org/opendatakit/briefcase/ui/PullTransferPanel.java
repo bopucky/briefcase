@@ -16,6 +16,8 @@
 
 package org.opendatakit.briefcase.ui;
 
+import static java.util.stream.Collectors.toList;
+
 import java.awt.Component;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
@@ -26,7 +28,6 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
-
 import javax.swing.GroupLayout;
 import javax.swing.GroupLayout.Alignment;
 import javax.swing.JButton;
@@ -36,11 +37,9 @@ import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JSeparator;
 import javax.swing.JTextField;
 import javax.swing.LayoutStyle.ComponentPlacement;
 import javax.swing.SwingUtilities;
-
 import org.bushe.swing.event.annotation.AnnotationProcessor;
 import org.bushe.swing.event.annotation.EventSubscriber;
 import org.opendatakit.briefcase.model.BriefcasePreferences;
@@ -49,32 +48,35 @@ import org.opendatakit.briefcase.model.FormStatus;
 import org.opendatakit.briefcase.model.FormStatusEvent;
 import org.opendatakit.briefcase.model.OdkCollectFormDefinition;
 import org.opendatakit.briefcase.model.RetrieveAvailableFormsFailedEvent;
+import org.opendatakit.briefcase.model.SavePasswordsConsentRevoked;
 import org.opendatakit.briefcase.model.ServerConnectionInfo;
 import org.opendatakit.briefcase.model.TerminationFuture;
 import org.opendatakit.briefcase.model.TransferAbortEvent;
 import org.opendatakit.briefcase.model.TransferFailedEvent;
 import org.opendatakit.briefcase.model.TransferSucceededEvent;
+import org.opendatakit.briefcase.ui.reused.Analytics;
 import org.opendatakit.briefcase.util.FileSystemUtils;
 import org.opendatakit.briefcase.util.TransferAction;
+import org.opendatakit.briefcase.util.WebUtils;
 
 /**
  * Pull forms and data to external locations.
  *
  * @author mitchellsundt@gmail.com
- *
  */
 public class PullTransferPanel extends JPanel {
 
   /**
-    *
-    */
+   *
+   */
   private static final long serialVersionUID = -2192404551259501394L;
 
   public static final String TAB_NAME = "Pull";
 
   private static final String DOWNLOADING_DOT_ETC = "Downloading..........";
-  private static final BriefcasePreferences PREFERENCES =
-      BriefcasePreferences.forClass(PullTransferPanel.class);
+  private final BriefcasePreferences tabPreferences;
+  private final BriefcasePreferences appPreferences;
+  private final Analytics analytics;
 
   private JComboBox<String> listOriginDataSource;
   private JButton btnOriginAction;
@@ -101,8 +103,7 @@ public class PullTransferPanel extends JPanel {
     public void actionPerformed(ActionEvent e) {
       EndPointType selection = getSelectedEndPointType();
       if (selection != null) {
-        if (EndPointType.AGGREGATE_0_9_X_CHOICE.equals(selection)
-            || EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
+        if (EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
           lblOrigin.setText("URL:");
           txtOriginName.setText("");
           txtOriginName.setEditable(false);
@@ -140,36 +141,34 @@ public class PullTransferPanel extends JPanel {
     public void actionPerformed(ActionEvent e) {
       EndPointType selection = getSelectedEndPointType();
       originServerInfo = initServerInfoWithPreferences(selection);
-      if (EndPointType.AGGREGATE_0_9_X_CHOICE.equals(selection)) {
-        // need to show (modal) connect dialog...
-        LegacyServerConnectionDialog d = new LegacyServerConnectionDialog(
-            (Window) PullTransferPanel.this.getTopLevelAncestor(), originServerInfo, false);
-        d.setVisible(true);
-        if (d.isSuccessful()) {
-          originServerInfo = d.getServerInfo();
-          txtOriginName.setText(originServerInfo.getUrl());
-          PREFERENCES.put(BriefcasePreferences.AGGREGATE_0_9_X_URL, originServerInfo.getUrl());
-          PREFERENCES.put(BriefcasePreferences.TOKEN, originServerInfo.getToken());
-          PullTransferPanel.this.updateFormStatuses();
-        }
-      } else if (EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
+      if (EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
         // need to show (modal) connect dialog...
         ServerConnectionDialog d = new ServerConnectionDialog(
             (Window) PullTransferPanel.this.getTopLevelAncestor(), originServerInfo, false);
         d.setVisible(true);
         if (d.isSuccessful()) {
+          // We reset the Http context to force next request to authenticate itself
+          WebUtils.resetHttpContext();
           originServerInfo = d.getServerInfo();
           txtOriginName.setText(originServerInfo.getUrl());
-          PREFERENCES.put(BriefcasePreferences.USERNAME, originServerInfo.getUsername());
-          PREFERENCES.put(BriefcasePreferences.AGGREGATE_1_0_URL, originServerInfo.getUrl());
+          tabPreferences.put(BriefcasePreferences.AGGREGATE_1_0_URL, originServerInfo.getUrl());
+          tabPreferences.put(BriefcasePreferences.USERNAME, originServerInfo.getUsername());
+          if (BriefcasePreferences.getStorePasswordsConsentProperty())
+            tabPreferences.put(BriefcasePreferences.PASSWORD, new String(originServerInfo.getPassword()));
           PullTransferPanel.this.updateFormStatuses();
+        } else {
+          if (!BriefcasePreferences.getStorePasswordsConsentProperty()) {
+            // We need to clear the forms table because we have lost any password
+            // by opening the connection dialog
+            formTransferTable.setFormStatusList(new ArrayList<>());
+          }
         }
       } else if (EndPointType.CUSTOM_ODK_COLLECT_DIRECTORY.equals(selection)) {
         // odkCollect...
         WrappedFileChooser fc = new WrappedFileChooser(PullTransferPanel.this,
             new ODKCollectFileChooser(PullTransferPanel.this));
         String filePath = txtOriginName.getText();
-        if ( filePath != null && filePath.trim().length() != 0 ) {
+        if (filePath != null && filePath.trim().length() != 0) {
           fc.setSelectedFile(new File(filePath.trim()));
         }
         int retVal = fc.showDialog();
@@ -211,8 +210,7 @@ public class PullTransferPanel extends JPanel {
 
       try {
         setActiveTransferState(true);
-        if (EndPointType.AGGREGATE_0_9_X_CHOICE.equals(originSelection)
-            || EndPointType.AGGREGATE_1_0_CHOICE.equals(originSelection)) {
+        if (EndPointType.AGGREGATE_1_0_CHOICE.equals(originSelection)) {
           TransferAction.transferServerToBriefcase(originServerInfo, terminationFuture,
               formsToTransfer);
         } else if (EndPointType.CUSTOM_ODK_COLLECT_DIRECTORY.equals(originSelection)) {
@@ -232,17 +230,20 @@ public class PullTransferPanel extends JPanel {
     }
   }
 
-  public PullTransferPanel(TerminationFuture terminationFuture) {
+  public PullTransferPanel(TerminationFuture terminationFuture, BriefcasePreferences tabPreferences, BriefcasePreferences appPreferences, Analytics analytics) {
     super();
+    this.tabPreferences = tabPreferences;
+    this.appPreferences = appPreferences;
     AnnotationProcessor.process(this);// if not using AOP
+    addComponentListener(analytics.buildComponentListener("Pull"));
     this.terminationFuture = terminationFuture;
+    this.analytics = analytics;
     JLabel lblGetDataFrom = new JLabel(TAB_NAME + " data from:");
 
-    listOriginDataSource = new JComboBox<String>(new String[] {
-        EndPointType.AGGREGATE_0_9_X_CHOICE.toString(),
-        EndPointType.AGGREGATE_1_0_CHOICE.toString(),
-        EndPointType.MOUNTED_ODK_COLLECT_DEVICE_CHOICE.toString(),
-        EndPointType.CUSTOM_ODK_COLLECT_DIRECTORY.toString() });
+    listOriginDataSource = new JComboBox<>(new String[] {
+            EndPointType.AGGREGATE_1_0_CHOICE.toString(),
+            EndPointType.MOUNTED_ODK_COLLECT_DEVICE_CHOICE.toString(),
+            EndPointType.CUSTOM_ODK_COLLECT_DIRECTORY.toString() });
     listOriginDataSource.addActionListener(new OriginSourceListener());
 
     lblOrigin = new JLabel("Origin:");
@@ -258,7 +259,7 @@ public class PullTransferPanel extends JPanel {
 
       @Override
       public void focusLost(FocusEvent e) {
-        if ( txtOriginName.isEditable() ) {
+        if (txtOriginName.isEditable()) {
           PullTransferPanel.this.updateFormStatuses();
         }
       }
@@ -266,8 +267,6 @@ public class PullTransferPanel extends JPanel {
 
     btnOriginAction = new JButton("Choose...");
     btnOriginAction.addActionListener(new OriginActionListener());
-
-    JLabel lblFormsToTransfer = new JLabel("Forms to " + TAB_NAME + ":");
 
     btnSelectOrClearAllForms = new JButton("Select all");
 
@@ -286,10 +285,8 @@ public class PullTransferPanel extends JPanel {
 
     formTransferTable = new FormTransferTable(
             btnSelectOrClearAllForms, FormStatus.TransferType.GATHER, btnTransfer, btnCancel);
-
+    formTransferTable.setSourceSelected(true);
     JScrollPane scrollPane = new JScrollPane(formTransferTable);
-
-    JSeparator separatorFormsList = new JSeparator();
 
     GroupLayout groupLayout = new GroupLayout(this);
     groupLayout.setHorizontalGroup(groupLayout
@@ -317,9 +314,6 @@ public class PullTransferPanel extends JPanel {
                                     groupLayout.createSequentialGroup().addComponent(txtOriginName)
                                         .addPreferredGap(ComponentPlacement.RELATED)
                                         .addComponent(btnOriginAction))))
-                .addComponent(separatorFormsList, GroupLayout.DEFAULT_SIZE,
-                    GroupLayout.PREFERRED_SIZE, Short.MAX_VALUE)
-                .addComponent(lblFormsToTransfer)
                 // scroll pane
                 .addComponent(scrollPane, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE,
                     Short.MAX_VALUE)
@@ -342,11 +336,6 @@ public class PullTransferPanel extends JPanel {
             groupLayout.createParallelGroup(Alignment.BASELINE).addComponent(lblOrigin)
                 .addComponent(txtOriginName).addComponent(btnOriginAction))
         .addPreferredGap(ComponentPlacement.RELATED)
-        .addComponent(separatorFormsList, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE,
-            GroupLayout.PREFERRED_SIZE)
-        .addPreferredGap(ComponentPlacement.RELATED)
-        .addComponent(lblFormsToTransfer)
-        .addPreferredGap(ComponentPlacement.RELATED)
         .addComponent(scrollPane, 200, GroupLayout.PREFERRED_SIZE, Short.MAX_VALUE)
         .addPreferredGap(ComponentPlacement.RELATED)
         .addGroup(
@@ -356,7 +345,7 @@ public class PullTransferPanel extends JPanel {
     setLayout(groupLayout);
 
     // and finally, set the initial selections in the combo boxes...
-    listOriginDataSource.setSelectedIndex(1);
+    listOriginDataSource.setSelectedIndex(0);
 
     // set up the transfer action...
     btnTransfer.addActionListener(new TransferActionListener());
@@ -378,14 +367,13 @@ public class PullTransferPanel extends JPanel {
   }
 
   public void updateFormStatuses() {
-    List<FormStatus> statuses = new ArrayList<FormStatus>();
+    List<FormStatus> statuses = new ArrayList<>();
 
     // determine what our origin is...
     String strSelection = (String) listOriginDataSource.getSelectedItem();
     EndPointType selection = (strSelection != null) ? EndPointType.fromString(strSelection) : null;
     if (selection != null) {
-      if (EndPointType.AGGREGATE_0_9_X_CHOICE.equals(selection)
-          || EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
+      if (EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
         // clear the list of forms first...
         formTransferTable.setFormStatusList(statuses);
         terminationFuture.reset();
@@ -427,8 +415,7 @@ public class PullTransferPanel extends JPanel {
     EndPointType selection = getSelectedEndPointType();
 
     if (selection != null) {
-      if (EndPointType.AGGREGATE_0_9_X_CHOICE.equals(selection)
-          || EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
+      if (EndPointType.AGGREGATE_1_0_CHOICE.equals(selection)) {
         txtOriginName.setEditable(false);
       } else if (EndPointType.CUSTOM_ODK_COLLECT_DIRECTORY.equals(selection)) {
         txtOriginName.setEditable(active);
@@ -460,7 +447,7 @@ public class PullTransferPanel extends JPanel {
       listOriginDataSource.setEnabled(true);
       btnOriginAction.setEnabled(true);
       btnSelectOrClearAllForms.setEnabled(true);
-      btnTransfer.setEnabled(true);
+      btnTransfer.setEnabled(!formTransferTable.getSelectedForms().isEmpty());
       // disable cancel button
       btnCancel.setEnabled(false);
       // hide downloading progress text (by setting foreground color to
@@ -471,50 +458,62 @@ public class PullTransferPanel extends JPanel {
     // remember state...
     transferStateActive = active;
   }
-  
+
   private EndPointType getSelectedEndPointType() {
     String strSelection = (String) listOriginDataSource.getSelectedItem();
     return EndPointType.fromString(strSelection);
   }
-  
+
   private ServerConnectionInfo initServerInfoWithPreferences(EndPointType type) {
     ServerConnectionInfo connectionInfo = null;
-    switch (type) {
-      case AGGREGATE_0_9_X_CHOICE:
-        String legacyUrl = PREFERENCES.get(BriefcasePreferences.AGGREGATE_0_9_X_URL, "");
-        String token = PREFERENCES.get(BriefcasePreferences.TOKEN, "");
-        connectionInfo = new ServerConnectionInfo(legacyUrl, token);
-        break;
-      case AGGREGATE_1_0_CHOICE:
-        String url = PREFERENCES.get(BriefcasePreferences.AGGREGATE_1_0_URL, "");
-        String username = PREFERENCES.get(BriefcasePreferences.USERNAME, "");
-        connectionInfo = new ServerConnectionInfo(url, username, new char[0]);
-        break;
-      default:
-        break; // There are no preferences needed for the other types.
-    }
+    if (type == EndPointType.AGGREGATE_1_0_CHOICE) {
+      String url = tabPreferences.get(BriefcasePreferences.AGGREGATE_1_0_URL, "");
+      String username = tabPreferences.get(BriefcasePreferences.USERNAME, "");
+      char[] password = BriefcasePreferences.getStorePasswordsConsentProperty() ? tabPreferences.get(BriefcasePreferences.PASSWORD, "").toCharArray() : new char[0];
+      connectionInfo = new ServerConnectionInfo(url, username, password);
+    } // There are no preferences needed for the other types.
+
     return connectionInfo;
   }
 
   @EventSubscriber(eventClass = TransferFailedEvent.class)
-  public void failedCompletion(TransferFailedEvent event) {
+  public void onTransferFailedEvent(TransferFailedEvent event) {
     setActiveTransferState(false);
+    analytics.event("Pull", "Transfer", "Failure", null);
   }
 
   @EventSubscriber(eventClass = TransferSucceededEvent.class)
-  public void successfulCompletion(TransferSucceededEvent event) {
+  public void onTransferSucceededEvent(TransferSucceededEvent event) {
     setActiveTransferState(false);
+    if (BriefcasePreferences.getStorePasswordsConsentProperty()) {
+      event.formsToTransfer.forEach(form -> {
+        appPreferences.put(String.format("%s_pull_settings_url", form.getFormDefinition().getFormId()), event.transferSettings.getUrl());
+        appPreferences.put(String.format("%s_pull_settings_username", form.getFormDefinition().getFormId()), event.transferSettings.getUsername());
+        appPreferences.put(String.format("%s_pull_settings_password", form.getFormDefinition().getFormId()), String.valueOf(event.transferSettings.getPassword()));
+      });
+    }
+    analytics.event("Pull", "Transfer", "Success", null);
   }
 
   @EventSubscriber(eventClass = FormStatusEvent.class)
-  public void updateDetailedStatus(FormStatusEvent fse) {
+  public void onFormStatusEvent(FormStatusEvent fse) {
     updateDownloadingLabel();
   }
 
   @EventSubscriber(eventClass = RetrieveAvailableFormsFailedEvent.class)
-  public void formsAvailableFromServer(RetrieveAvailableFormsFailedEvent event) {
+  public void onRetrieveAvailableFormsFailedEvent(RetrieveAvailableFormsFailedEvent event) {
     ODKOptionPane.showErrorDialog(PullTransferPanel.this,
         "Accessing the server failed with error: " + event.getReason(), "Accessing Server Failed");
+  }
+
+  @EventSubscriber(eventClass = SavePasswordsConsentRevoked.class)
+  public void onSavePasswordsConsentRevoked(SavePasswordsConsentRevoked event) {
+    tabPreferences.remove(BriefcasePreferences.PASSWORD);
+    appPreferences.removeAll(appPreferences.keys().stream().filter((String key) ->
+        key.endsWith("_pull_settings_url")
+            || key.endsWith("_pull_settings_username")
+            || key.endsWith("_pull_settings_password")
+    ).collect(toList()));
   }
 
 }

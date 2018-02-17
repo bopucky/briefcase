@@ -18,30 +18,6 @@
 
 package org.opendatakit.briefcase.ui;
 
-import org.apache.commons.io.FileUtils;
-import org.apache.commons.io.IOUtils;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-
-import javax.swing.DefaultListModel;
-import javax.swing.JButton;
-import javax.swing.JCheckBox;
-import javax.swing.JDialog;
-import javax.swing.JFileChooser;
-import javax.swing.JFrame;
-import javax.swing.JLabel;
-import javax.swing.JList;
-import javax.swing.JOptionPane;
-import javax.swing.JPanel;
-import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
-import javax.swing.JTextField;
-import javax.swing.ListSelectionModel;
-import javax.swing.SwingUtilities;
-import javax.swing.UIManager;
-import javax.swing.border.EmptyBorder;
-import javax.swing.event.ListSelectionEvent;
-import javax.swing.event.ListSelectionListener;
 import java.awt.BorderLayout;
 import java.awt.Container;
 import java.awt.EventQueue;
@@ -65,6 +41,30 @@ import java.util.List;
 import java.util.Map;
 import java.util.SortedMap;
 
+import javax.swing.DefaultListModel;
+import javax.swing.JButton;
+import javax.swing.JCheckBox;
+import javax.swing.JDialog;
+import javax.swing.JFileChooser;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JList;
+import javax.swing.JOptionPane;
+import javax.swing.JPanel;
+import javax.swing.JScrollPane;
+import javax.swing.JTextArea;
+import javax.swing.JTextField;
+import javax.swing.ListSelectionModel;
+import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
+import javax.swing.border.EmptyBorder;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
+
+import org.apache.commons.io.FileUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 /**
  *
  * Author Meletis Margaritis
@@ -75,7 +75,7 @@ public class CharsetConverterDialog extends JDialog implements ActionListener {
    *
    */
   private static final long serialVersionUID = -5321396641987129789L;
-  private static final Log log = LogFactory.getLog(CharsetConverterDialog.class);
+  private static final Logger log = LoggerFactory.getLogger(CharsetConverterDialog.class);
 
   private static final String LINE_SEPARATOR = System.getProperty("line.separator");
 
@@ -295,7 +295,7 @@ public class CharsetConverterDialog extends JDialog implements ActionListener {
     } else {
       JOptionPane.showMessageDialog(this,
               "It appears that your installed Java Runtime Environment does not support any charset encodings!",
-              "Error!", JOptionPane.ERROR_MESSAGE);
+              "Error", JOptionPane.ERROR_MESSAGE);
     }
   }
 
@@ -369,35 +369,26 @@ public class CharsetConverterDialog extends JDialog implements ActionListener {
 
     final Window pleaseWaitWindow = ODKOptionPane.showMessageDialog(this, "Creating preview, please wait...");
 
-    SwingUtilities.invokeLater(new Runnable() {
-      @Override
-      public void run() {
-        File file = new File(filePath);
-        BufferedReader bufferedReader = null;
-        try {
-          bufferedReader = new BufferedReader(new InputStreamReader(new FileInputStream(file), getCharsetName()));
-          List<String> lines = new ArrayList<String>();
-          int N = 100;
-          String line;
-          int c = 0;
-          while ((line = bufferedReader.readLine()) != null && c < N) {
-            lines.add(line);
-          }
-
-          previewArea.setText(join(lines, LINE_SEPARATOR));
-          previewArea.setCaretPosition(0);
-
-        } catch (Exception ex) {
-          log.error("failed to create preview", ex);
-          JOptionPane.showMessageDialog(CharsetConverterDialog.this,
-                  ex.getMessage(),
-                  "Error reading file...", JOptionPane.ERROR_MESSAGE);
-        } finally {
-          IOUtils.closeQuietly(bufferedReader);
-
-          pleaseWaitWindow.setVisible(false);
-          pleaseWaitWindow.dispose();
+    SwingUtilities.invokeLater(() -> {
+      try (BufferedReader bufferedReader =
+                   new BufferedReader(new InputStreamReader(new FileInputStream(filePath), getCharsetName()))) {
+        List<String> lines = new ArrayList<>();
+        String line;
+        while ((line = bufferedReader.readLine()) != null) {
+          lines.add(line);
         }
+
+        previewArea.setText(join(lines, LINE_SEPARATOR));
+        previewArea.setCaretPosition(0);
+
+      } catch (Exception ex) {
+        log.error("failed to create preview", ex);
+        JOptionPane.showMessageDialog(CharsetConverterDialog.this,
+                ex.getMessage(),
+                "Error reading file...", JOptionPane.ERROR_MESSAGE);
+      } finally {
+        pleaseWaitWindow.setVisible(false);
+        pleaseWaitWindow.dispose();
       }
     });
   }

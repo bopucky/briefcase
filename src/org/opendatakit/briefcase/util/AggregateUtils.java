@@ -1,12 +1,12 @@
 /*
  * Copyright (C) 2011 University of Washington.
- * 
+ *
  * Licensed under the Apache License, Version 2.0 (the "License"); you may not
  * use this file except in compliance with the License. You may obtain a copy of
  * the License at
- * 
+ *
  * http://www.apache.org/licenses/LICENSE-2.0
- * 
+ *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS, WITHOUT
  * WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the
@@ -29,9 +29,6 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.nio.charset.Charset;
 import java.util.List;
-
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.apache.http.Header;
 import org.apache.http.HttpEntity;
 import org.apache.http.HttpResponse;
@@ -58,13 +55,13 @@ import org.opendatakit.briefcase.model.TerminationFuture;
 import org.opendatakit.briefcase.model.TransmissionException;
 import org.opendatakit.briefcase.model.XmlDocumentFetchException;
 import org.opendatakit.briefcase.util.ServerUploader.SubmissionResponseAction;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.xmlpull.v1.XmlPullParser;
 
 public class AggregateUtils {
 
-  private static final String BRIEFCASE_APP_TOKEN_PARAMETER = "briefcaseAppToken";
-
-  private static final Log log = LogFactory.getLog(AggregateUtils.class);
+  private static final Logger log = LoggerFactory.getLogger(AggregateUtils.class);
 
   private static final CharSequence HTTP_CONTENT_TYPE_TEXT_XML = "text/xml";
 
@@ -90,7 +87,7 @@ public class AggregateUtils {
    * Common routine to download a document from the downloadUrl and save the
    * contents in the file 'f'. Shared by media file download and form file
    * download.
-   * 
+   *
    * @param f
    * @param downloadUrl
    * @throws URISyntaxException
@@ -98,9 +95,7 @@ public class AggregateUtils {
    * @throws ClientProtocolException
    * @throws TransmissionException
    */
-  public static final void commonDownloadFile(ServerConnectionInfo serverInfo, File f,
-      String downloadUrl) throws URISyntaxException, ClientProtocolException, IOException,
-      TransmissionException {
+  public static final void commonDownloadFile(ServerConnectionInfo serverInfo, File f, String downloadUrl) throws URISyntaxException, IOException, TransmissionException {
 
     // OK. We need to download it because we either:
     // (1) don't have it
@@ -115,27 +110,15 @@ public class AggregateUtils {
       throw e;
     }
 
-    // get shared HttpContext so that authentication and cookies are retained.
-    HttpClientContext localContext = serverInfo.getHttpContext();
+    HttpClient httpclient = WebUtils.createHttpClient();
 
-    HttpClient httpclient = serverInfo.getHttpClient();
+    // get shared HttpContext so that authentication and cookies are retained.
+    HttpClientContext localContext = WebUtils.getHttpContext();
 
     // set up request...
     HttpGet req = WebUtils.createOpenRosaHttpGet(u);
 
-    if (serverInfo.getUsername() != null && serverInfo.getUsername().length() != 0) {
-      if (!WebUtils.hasCredentials(localContext, serverInfo.getUsername(), u.getHost())) {
-        WebUtils.clearAllCredentials(localContext);
-        WebUtils.addCredentials(localContext, serverInfo.getUsername(), serverInfo.getPassword(),
-            u.getHost());
-      }
-    } else {
-      WebUtils.clearAllCredentials(localContext);
-    }
-
-    if (!serverInfo.isOpenRosaServer()) {
-      req.addHeader(BRIEFCASE_APP_TOKEN_PARAMETER, serverInfo.getToken());
-    }
+    WebUtils.setCredentials(localContext, serverInfo, u);
 
     HttpResponse response = null;
     // try
@@ -143,7 +126,11 @@ public class AggregateUtils {
       response = httpclient.execute(req, localContext);
       int statusCode = response.getStatusLine().getStatusCode();
 
-      if (statusCode != 200) {
+      if (statusCode == 401) {
+        // We reset the Http context to force next request to authenticate itself
+        WebUtils.resetHttpContext();
+        throw new TransmissionException("Authentication failure");
+      } else if (statusCode != 200) {
         String errMsg = String.format(FETCH_FAILED_DETAILED_REASON, f.getAbsolutePath())
             + response.getStatusLine().getReasonPhrase() + " (" + statusCode + ")";
         log.error(errMsg);
@@ -169,15 +156,13 @@ public class AggregateUtils {
    * Common method for returning a parsed xml document given a url and the http
    * context and client objects involved in the web connection. The document is
    * the body of the response entity and should be xml.
-   * 
+   *
    * @param urlString
-   * @param localContext
-   * @param httpclient
    * @return
    */
   public static final DocumentFetchResult getXmlDocument(String urlString,
-      ServerConnectionInfo serverInfo, boolean alwaysResetCredentials, 
-      DocumentDescription description, ResponseAction action)
+                                                         ServerConnectionInfo serverInfo, boolean alwaysResetCredentials,
+                                                         DocumentDescription description, ResponseAction action)
       throws XmlDocumentFetchException {
 
     URI u = null;
@@ -189,7 +174,7 @@ public class AggregateUtils {
       if (!urlString.toLowerCase().startsWith("http://") && !urlString.toLowerCase().startsWith("https://")) {
         msg += "\nDid you forget to prefix the address with 'http://' or 'https://' ?";
       }
-      log.warn(msg, e) ;
+      log.warn(msg, e);
       throw new XmlDocumentFetchException(msg);
     } catch (URISyntaxException e) {
       String msg = description.getFetchDocFailed() + "Invalid uri: " + urlString + ".\nFailed with error: "
@@ -198,19 +183,10 @@ public class AggregateUtils {
       throw new XmlDocumentFetchException(msg);
     }
 
-    HttpClient httpClient = serverInfo.getHttpClient();
-
-    // get shared HttpContext so that authentication and cookies are retained.
-    HttpClientContext localContext = serverInfo.getHttpContext();
-    if (localContext == null) {
-      localContext = WebUtils.createHttpContext();
-      serverInfo.setHttpContext(localContext);
-    }
-
     // set up request...
     HttpGet req = WebUtils.createOpenRosaHttpGet(u);
 
-    int[] validStatusList = { 200 };
+    int[] validStatusList = {200};
 
     return httpRetrieveXmlDocument(req, validStatusList, serverInfo, alwaysResetCredentials,
         description, action);
@@ -232,48 +208,32 @@ public class AggregateUtils {
       }
     }
   }
-  
+
   /**
    * Common method for returning a parsed xml document given a url and the http
    * context and client objects involved in the web connection. The document is
    * the body of the response entity and should be xml.
-   * 
-   * @param urlString
-   * @param localContext
-   * @param httpclient
+   *
    * @return
    */
   private static final DocumentFetchResult httpRetrieveXmlDocument(HttpUriRequest request,
-      int[] validStatusList, ServerConnectionInfo serverInfo, boolean alwaysResetCredentials,
-      DocumentDescription description, 
-      ResponseAction action) throws XmlDocumentFetchException {
+                                                                   int[] validStatusList, ServerConnectionInfo serverInfo, boolean alwaysResetCredentials,
+                                                                   DocumentDescription description,
+                                                                   ResponseAction action) throws XmlDocumentFetchException {
 
-    HttpClient httpClient = serverInfo.getHttpClient();
+    HttpClient httpClient = WebUtils.createHttpClient();
 
     // get shared HttpContext so that authentication and cookies are retained.
-    HttpClientContext localContext = serverInfo.getHttpContext();
+    HttpClientContext localContext = WebUtils.getHttpContext();
 
-    URI u = request.getURI();
+    URI uri = request.getURI();
 
-    if (serverInfo.getUsername() != null && serverInfo.getUsername().length() != 0) {
-      if (alwaysResetCredentials
-          || !WebUtils.hasCredentials(localContext, serverInfo.getUsername(), u.getHost())) {
-        WebUtils.clearAllCredentials(localContext);
-        WebUtils.addCredentials(localContext, serverInfo.getUsername(), serverInfo.getPassword(),
-            u.getHost());
-      }
-    } else {
-      WebUtils.clearAllCredentials(localContext);
-    }
+    WebUtils.setCredentials(localContext, serverInfo, uri, alwaysResetCredentials);
 
-    if (!serverInfo.isOpenRosaServer()) {
-      request.addHeader(BRIEFCASE_APP_TOKEN_PARAMETER, serverInfo.getToken());
-    }
-
-    if ( description.isCancelled() ) {
+    if (description.isCancelled()) {
       throw new XmlDocumentFetchException("Transfer of " + description.getDocumentDescriptionType() + " aborted.");
     }
-    
+
     HttpResponse response = null;
     try {
       response = httpClient.execute(request, localContext);
@@ -296,28 +256,32 @@ public class AggregateUtils {
       if (!statusCodeValid) {
         String webError = response.getStatusLine().getReasonPhrase() + " (" + statusCode + ")";
 
-        if (statusCode == 400) {
+        if (statusCode == 401) {
+          // We reset the Http context to force next request to authenticate itself
+          WebUtils.resetHttpContext();
+          ex = new XmlDocumentFetchException("Authentication failure");
+        } else if (statusCode == 400) {
           ex = new XmlDocumentFetchException(description.getFetchDocFailed() + webError + " while accessing: "
-              + u.toString() + "\nPlease verify that the " + description.getDocumentDescriptionType()
+              + uri.toString() + "\nPlease verify that the " + description.getDocumentDescriptionType()
               + " that is being uploaded is well-formed.");
         } else {
           ex = new XmlDocumentFetchException(
               description.getFetchDocFailed()
                   + webError
                   + " while accessing: "
-                  + u.toString()
+                  + uri.toString()
                   + "\nPlease verify that the URL, your user credentials and your permissions are all correct.");
         }
       } else if (entity == null) {
-        log.warn("No entity body returned from: " + u.toString() + " is not text/xml");
+        log.warn("No entity body returned from: " + uri.toString() + " is not text/xml");
         ex = new XmlDocumentFetchException(description.getFetchDocFailed()
-            + " Server unexpectedly returned no content while accessing: " + u.toString());
+            + " Server unexpectedly returned no content while accessing: " + uri.toString());
       } else if (!(lcContentType.contains(HTTP_CONTENT_TYPE_TEXT_XML) || lcContentType
           .contains(HTTP_CONTENT_TYPE_APPLICATION_XML))) {
         log.warn("ContentType: " + entity.getContentType().getValue() + "returned from: "
-            + u.toString() + " is not text/xml");
+            + uri.toString() + " is not text/xml");
         ex = new XmlDocumentFetchException(description.getFetchDocFailed()
-            + "A non-XML document was returned while accessing: " + u.toString()
+            + "A non-XML document was returned while accessing: " + uri.toString()
             + "\nA network login screen may be interfering with the transmission to the server.");
       }
 
@@ -359,7 +323,7 @@ public class AggregateUtils {
         }
       } catch (Exception e) {
         log.warn("Parsing failed with " + e.getMessage(), e);
-        throw new XmlDocumentFetchException(description.getFetchDocFailed() + " while accessing: " + u.toString());
+        throw new XmlDocumentFetchException(description.getFetchDocFailed() + " while accessing: " + uri.toString());
       }
 
       // examine header fields...
@@ -394,7 +358,7 @@ public class AggregateUtils {
         try {
           URL url = new URL(locations[0].getValue());
           URI uNew = url.toURI();
-          if (u.getHost().equalsIgnoreCase(uNew.getHost())) {
+          if (uri.getHost().equalsIgnoreCase(uNew.getHost())) {
             // trust the server to tell us a new location
             // ... and possibly to use https instead.
             String fullUrl = url.toExternalForm();
@@ -433,14 +397,14 @@ public class AggregateUtils {
   /**
    * Send a HEAD request to the server to confirm the validity of the URL and
    * credentials.
-   * 
+   *
    * @param serverInfo
    * @param actionAddr
    * @return the confirmed URI of this action.
    * @throws TransmissionException
    */
   public static final URI testServerConnectionWithHeadRequest(ServerConnectionInfo serverInfo,
-      String actionAddr) throws TransmissionException {
+                                                              String actionAddr) throws TransmissionException {
 
     String urlString = serverInfo.getUrl();
     if (urlString.endsWith("/")) {
@@ -466,50 +430,31 @@ public class AggregateUtils {
       throw new TransmissionException(msg);
     }
 
-    HttpClient httpClient = serverInfo.getHttpClient();
+    HttpClient httpClient = WebUtils.createHttpClient();
 
     // get shared HttpContext so that authentication and cookies are retained.
-    HttpClientContext localContext = serverInfo.getHttpContext();
-    if (localContext == null) {
-      localContext = WebUtils.createHttpContext();
-      serverInfo.setHttpContext(localContext);
-    }
+    HttpClientContext localContext = WebUtils.getHttpContext();
 
-    if (serverInfo.getUsername() != null && serverInfo.getUsername().length() != 0) {
-      if (!WebUtils.hasCredentials(localContext, serverInfo.getUsername(), u.getHost())) {
-        WebUtils.clearAllCredentials(localContext);
-        WebUtils.addCredentials(localContext, serverInfo.getUsername(), serverInfo.getPassword(),
-            u.getHost());
-      }
-    } else {
-      WebUtils.clearAllCredentials(localContext);
-    }
+    WebUtils.setCredentials(localContext, serverInfo, u);
 
     {
       // we need to issue a head request
       HttpHead httpHead = WebUtils.createOpenRosaHttpHead(u);
-
-      if (!serverInfo.isOpenRosaServer()) {
-        httpHead.addHeader(BRIEFCASE_APP_TOKEN_PARAMETER, serverInfo.getToken());
-      }
 
       // prepare response
       HttpResponse response = null;
       try {
         response = httpClient.execute(httpHead, localContext);
         int statusCode = response.getStatusLine().getStatusCode();
-        if (statusCode == 204) {
+        if (statusCode == 401) {
+          // We reset the Http context to force next request to authenticate itself
+          WebUtils.resetHttpContext();
+          throw new TransmissionException("Authentication failure");
+        } else if (statusCode == 204) {
           Header[] openRosaVersions = response.getHeaders(WebUtils.OPEN_ROSA_VERSION_HEADER);
-          if (openRosaVersions != null && openRosaVersions.length != 0) {
-            if (!serverInfo.isOpenRosaServer()) {
-              String msg = "Url: " + u.toString()
-                  + " is for an ODK Aggregate 1.0 or higher (OpenRosa compliant) server!";
-              log.warn(msg);
-              throw new TransmissionException(msg);
-            }
-          } else if (serverInfo.isOpenRosaServer()) {
+          if (openRosaVersions == null || openRosaVersions.length == 0) {
             String msg = "Url: " + u.toString()
-                + " is for an ODK Aggregate 0.9x or earlier (non-OpenRosa compliant) server!";
+                + ", header missing: " + WebUtils.OPEN_ROSA_VERSION_HEADER;
             log.warn(msg);
             throw new TransmissionException(msg);
           }
@@ -542,7 +487,7 @@ public class AggregateUtils {
             }
           } else {
             String msg = "The url: " + u.toString()
-                + " is not Aggregate 1.0 - status code on Head request: " + statusCode;
+                + " is not ODK Aggregate - status code on Head request: " + statusCode;
             log.warn(msg);
             throw new TransmissionException(msg);
           }
@@ -562,7 +507,7 @@ public class AggregateUtils {
             }
           }
           String msg = "The username or password may be incorrect or the url: " + u.toString()
-              + " is not Aggregate 1.0 - status code on Head request: " + statusCode;
+              + " is not ODK Aggregate - status code on Head request: " + statusCode;
           log.warn(msg);
           throw new TransmissionException(msg);
         }
@@ -575,8 +520,8 @@ public class AggregateUtils {
   }
 
   public static final boolean uploadFilesToServer(ServerConnectionInfo serverInfo, URI u,
-      String distinguishedFileTagName, File file, List<File> files, DocumentDescription description,
-      SubmissionResponseAction action, TerminationFuture terminationFuture, FormStatus formToTransfer) {
+                                                  String distinguishedFileTagName, File file, List<File> files, DocumentDescription description,
+                                                  SubmissionResponseAction action, TerminationFuture terminationFuture, FormStatus formToTransfer) {
 
     boolean allSuccessful = true;
     formToTransfer.setStatusString("Preparing for upload of " + description.getDocumentDescriptionType() + " with "
@@ -590,13 +535,13 @@ public class AggregateUtils {
       lastJ = j;
       first = false;
 
-      if ( terminationFuture.isCancelled() ) {
+      if (terminationFuture.isCancelled()) {
         formToTransfer.setStatusString("Aborting upload of " + description.getDocumentDescriptionType() + " with "
             + files.size() + " media attachments", true);
         EventBus.publish(new FormStatusEvent(formToTransfer));
         return false;
       }
-      
+
       HttpPost httppost = WebUtils.createOpenRosaHttpPost(u);
 
       long byteCount = 0L;
@@ -683,7 +628,7 @@ public class AggregateUtils {
 
       httppost.setEntity(builder.build());
 
-      int[] validStatusList = { 201 };
+      int[] validStatusList = {201};
 
       try {
         if (j != files.size()) {
@@ -705,8 +650,9 @@ public class AggregateUtils {
         log.error("upload failed", e);
         formToTransfer.setStatusString("UPLOAD FAILED: " + e.getMessage(), false);
         EventBus.publish(new FormStatusEvent(formToTransfer));
-        
-        if ( description.isCancelled() ) return false;
+
+        if (description.isCancelled())
+          return false;
       }
     }
 
