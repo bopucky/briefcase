@@ -26,13 +26,8 @@ import org.javarosa.core.model.instance.TreeElement;
 import org.kxml2.kdom.Document;
 import org.kxml2.kdom.Element;
 import org.kxml2.kdom.Node;
-import org.opendatakit.briefcase.model.BriefcaseFormDefinition;
-import org.opendatakit.briefcase.model.CryptoException;
-import org.opendatakit.briefcase.model.ExportProgressEvent;
-import org.opendatakit.briefcase.model.ExportProgressPercentageEvent;
-import org.opendatakit.briefcase.model.FileSystemException;
-import org.opendatakit.briefcase.model.ParsingException;
-import org.opendatakit.briefcase.model.TerminationFuture;
+import org.opendatakit.briefcase.model.*;
+import org.opendatakit.briefcase.operations.ExportException;
 import org.opendatakit.briefcase.util.XmlManipulationUtils.FormInstanceMetadata;
 
 import javax.crypto.Cipher;
@@ -45,18 +40,13 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.file.Path;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.LocalDate;
+import java.util.*;
 
 /** STATA export related imports**/
 //import com.sun.javaws.jnl.XMLFormat;
@@ -72,6 +62,8 @@ import java.lang.Math;
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.InvocationTargetException;
 import java.io.FileNotFoundException;
+
+import static java.time.ZoneId.systemDefault;
 
 public class ExportToDta implements ITransformFormAction {
 
@@ -146,11 +138,11 @@ public class ExportToDta implements ITransformFormAction {
 
   // Default briefcase constructor.
   // Exports as .xml, an xml version of the .xml format
-  public ExportToDta(File outputDir, BriefcaseFormDefinition lfd, TerminationFuture terminationFuture) {
-    this(outputDir, lfd, terminationFuture, lfd.getFormName(), true, false, null, null);
+  public ExportToDta(TerminationFuture terminationFuture, File outputDir, BriefcaseFormDefinition lfd) {
+    this(terminationFuture, outputDir, lfd,lfd.getFormName(), true, false, null, null);
   }
 
-  public ExportToDta(File outputDir, BriefcaseFormDefinition lfd, TerminationFuture terminationFuture, String filename, boolean exportMedia, Boolean overwrite, Date start, Date end) {
+  public ExportToDta(TerminationFuture terminationFuture, File outputDir, BriefcaseFormDefinition lfd, String filename, boolean exportMedia, Boolean overwrite, Date start, Date end) {
      this.outputDir = outputDir;
      this.outputMediaDir = new File(outputDir, MEDIA_DIR);
      this.briefcaseLfd = lfd;
@@ -176,14 +168,14 @@ public class ExportToDta implements ITransformFormAction {
       instancesDir = FileSystemUtils.getFormInstancesDirectory(briefcaseLfd.getFormDirectory());
     } catch (FileSystemException e) {
       // emit status change...
-      EventBus.publish(new ExportProgressEvent("Unable to access instances directory of form"));
+      EventBus.publish(new ExportProgressEvent("Unable to access instances directory of form", briefcaseLfd));
       e.printStackTrace();
       return false;
     }
 
     if (!outputDir.exists()) {
       if (!outputDir.mkdir()) {
-        EventBus.publish(new ExportProgressEvent("Unable to create destination directory"));
+        EventBus.publish(new ExportProgressEvent("Unable to create destination directory", briefcaseLfd));
         return false;
       }
     }
@@ -192,7 +184,7 @@ public class ExportToDta implements ITransformFormAction {
        if (!outputMediaDir.exists()) {
          if (!outputMediaDir.mkdir()) {
            EventBus
-               .publish(new ExportProgressEvent("Unable to create destination media directory"));
+               .publish(new ExportProgressEvent("Unable to create destination media directory", briefcaseLfd));
            return false;
          }
        }
@@ -207,7 +199,7 @@ public class ExportToDta implements ITransformFormAction {
 
     for (File instanceDir : instances) {
       if ( terminationFuture.isCancelled() ) {
-        EventBus.publish(new ExportProgressEvent("ABORTED"));
+        EventBus.publish(new ExportProgressEvent("ABORTED", briefcaseLfd));
         allSuccessful = false;
         break;
       }
@@ -244,7 +236,7 @@ public class ExportToDta implements ITransformFormAction {
         the_doc = null;
       } catch (IOException e) {
         e.printStackTrace();
-        EventBus.publish(new ExportProgressEvent("Error flushing dta file"));
+        EventBus.publish(new ExportProgressEvent("Error flushing dta file", briefcaseLfd));
         allSuccessful = false;
       }
     }
@@ -289,7 +281,7 @@ public class ExportToDta implements ITransformFormAction {
 
     } catch (IOException e) {
       e.printStackTrace();
-      EventBus.publish(new ExportProgressEvent("Error flushing dta file"));
+      EventBus.publish(new ExportProgressEvent("Error flushing dta file", briefcaseLfd));
       return false;
     }
     return true;
@@ -1724,7 +1716,7 @@ public class ExportToDta implements ITransformFormAction {
     } catch (FileNotFoundException e) {
       e.printStackTrace();
       EventBus.publish(new ExportProgressEvent("Unable to create dta file: "
-          + topLevelDta.getPath()));
+          + topLevelDta.getPath(), briefcaseLfd));
       for (OutputStreamWriter w : fileMap.values()) {
         try {
           w.close();
@@ -1740,7 +1732,7 @@ public class ExportToDta implements ITransformFormAction {
     } catch (UnsupportedEncodingException e) {
       e.printStackTrace();
       EventBus.publish(new ExportProgressEvent("Unable to create dta file: "
-          + topLevelDta.getPath()));
+          + topLevelDta.getPath(), briefcaseLfd));
       for (OutputStreamWriter w : fileMap.values()) {
         try {
           w.close();
@@ -1756,7 +1748,7 @@ public class ExportToDta implements ITransformFormAction {
     } catch (IOException e) {
       e.printStackTrace();
       EventBus.publish(new ExportProgressEvent("Unable to create dta file: "
-          + topLevelDta.getPath()));
+          + topLevelDta.getPath(), briefcaseLfd));
       for (OutputStreamWriter w : fileMap.values()) {
         try {
           w.close();
@@ -1777,10 +1769,10 @@ public class ExportToDta implements ITransformFormAction {
     File submission = new File(instanceDir, "submission.xml");
     if (!submission.exists() || !submission.isFile()) {
       EventBus.publish(new ExportProgressEvent("Submission not found for instance directory: "
-          + instanceDir.getPath()));
+          + instanceDir.getPath(), briefcaseLfd));
       return false;
     }
-    EventBus.publish(new ExportProgressEvent("Processing instance: " + instanceDir.getName()));
+    EventBus.publish(new ExportProgressEvent("Processing instance: " + instanceDir.getName(), briefcaseLfd));
 
     // If we are encrypted, be sure the temporary directory
     // that will hold the unencrypted files is created and empty.
@@ -1799,16 +1791,16 @@ public class ExportToDta implements ITransformFormAction {
         try {
           FileUtils.deleteDirectory(unEncryptedDir);
         } catch (IOException e) {
-          e.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Unable to delete stale temp directory: "
-              + unEncryptedDir.getAbsolutePath()));
+          String msg = "Unable to delete stale temp directory: " + unEncryptedDir.getAbsolutePath();
+          log.warn(msg, e);
+          EventBus.publish(new ExportProgressEvent(msg, briefcaseLfd));
           return false;
         }
       }
 
       if (!unEncryptedDir.mkdirs()) {
         EventBus.publish(new ExportProgressEvent("Unable to create temp directory: "
-            + unEncryptedDir.getAbsolutePath()));
+            + unEncryptedDir.getAbsolutePath(), briefcaseLfd));
         return false;
       }
     } else {
@@ -1824,12 +1816,12 @@ public class ExportToDta implements ITransformFormAction {
     } catch (ParsingException e) {
       e.printStackTrace();
       EventBus.publish(new ExportProgressEvent("Error parsing submission "
-          + instanceDir.getName() + " Cause: " + e.toString()));
+          + instanceDir.getName() + " Cause: " + e.toString(), briefcaseLfd));
       return false;
     } catch (FileSystemException e) {
       e.printStackTrace();
       EventBus.publish(new ExportProgressEvent("Error parsing submission "
-          + instanceDir.getName() + " Cause: " + e.toString()));
+          + instanceDir.getName() + " Cause: " + e.toString(), briefcaseLfd));
       return false;
     }
 
@@ -1880,29 +1872,18 @@ public class ExportToDta implements ITransformFormAction {
               instanceDir, unEncryptedDir);
           doc = outcome.submission;
           isValidated = outcome.isValidated;
-        } catch (ParsingException e) {
-          e.printStackTrace();
+        } catch (ParsingException | CryptoException | FileSystemException e) {
+          //Was unable to parse file or decrypt file or a file system error occurred
+          //Hence skip this instance
           EventBus.publish(new ExportProgressEvent("Error decrypting submission "
-              + instanceDir.getName() + " Cause: " + e.toString()));
-          //DVB: For Now just do this repeatedly. We'll update to current style of ExportToCsv.java later
+                  + instanceDir.getName() + " Cause: " + e.toString() + " skipping....", briefcaseLfd));
+
+          log.info("Error decrypting submission "
+                  + instanceDir.getName() + " Cause: " + e.toString());
+
           //update total number of files skipped
           totalFilesSkipped++;
-          return false;
-        } catch (FileSystemException e) {
-          e.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Error decrypting submission "
-              + instanceDir.getName() + " Cause: " + e.toString()));
-          //DVB: For Now just do this repeatedly. We'll update to current style of ExportToCsv.java later
-          //update total number of files skipped
-          totalFilesSkipped++;
-          return false;
-        } catch (CryptoException e) {
-          e.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Error decrypting submission "
-              + instanceDir.getName() + " Cause: " + e.toString()));//DVB: For Now just do this repeatedly. We'll update to current style of ExportToCsv.java later
-          //update total number of files skipped
-          totalFilesSkipped++;
-          return false;
+          return true;
         }
       }
 
@@ -1910,14 +1891,13 @@ public class ExportToDta implements ITransformFormAction {
       String base64EncryptedFieldKey = null;
       // find an instanceId to use...
       try {
-        FormInstanceMetadata sim = XmlManipulationUtils.getFormInstanceMetadata(doc
-            .getRootElement());
+        FormInstanceMetadata sim = XmlManipulationUtils.getFormInstanceMetadata(doc.getRootElement());
         instanceId = sim.instanceId;
         base64EncryptedFieldKey = sim.base64EncryptedFieldKey;
       } catch (ParsingException e) {
-        e.printStackTrace();
-        EventBus.publish(new ExportProgressEvent("Could not extract metadata from submission: "
-            + submission.getAbsolutePath() + " Cause: " + e.toString()));
+        String msg = "Could not extract metadata from submission: " + submission.getAbsolutePath();
+        log.error(msg, e);
+        EventBus.publish(new ExportProgressEvent(msg + " Cause: " + e.toString(), briefcaseLfd));
         return false;
       }
 
@@ -1930,16 +1910,16 @@ public class ExportToDta implements ITransformFormAction {
         try {
           checksum = FileUtils.checksumCRC32(submission);
         } catch (IOException e1) {
-          e1.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Failed during computing of crc: "
-              + e1.getMessage()));
+          String msg = "Failed during computing of crc";
+          log.error(msg, e1);
+          EventBus.publish(new ExportProgressEvent(msg + ": " + e1.getMessage(), briefcaseLfd));
           return false;
         }
         instanceId = "crc32:" + Long.toString(checksum);
       }
 
       if ( terminationFuture.isCancelled() ) {
-        EventBus.publish(new ExportProgressEvent("ABORTED"));
+        EventBus.publish(new ExportProgressEvent("ABORTED", briefcaseLfd));
         return false;
       }
 
@@ -1948,9 +1928,9 @@ public class ExportToDta implements ITransformFormAction {
         try {
           ei = new EncryptionInformation(base64EncryptedFieldKey, instanceId, briefcaseLfd.getPrivateKey());
         } catch (CryptoException e) {
-          e.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Error establishing field decryption for submission "
-              + instanceDir.getName() + " Cause: " + e.toString()));
+          String msg = "Error establishing field decryption for submission " + instanceDir.getName();
+          log.error(msg, e);
+          EventBus.publish(new ExportProgressEvent(msg + " Cause: " + e.toString(), briefcaseLfd));
           return false;
         }
       }
@@ -1979,7 +1959,7 @@ public class ExportToDta implements ITransformFormAction {
 
           if ( !isValidated ) {
             EventBus.publish(new ExportProgressEvent("Decrypted submission "
-                + instanceDir.getName() + " may be missing attachments and could not be validated."));
+                + instanceDir.getName() + " may be missing attachments and could not be validated.", briefcaseLfd));
           }
         }
         //reset
@@ -1992,8 +1972,9 @@ public class ExportToDta implements ITransformFormAction {
         return true;
 
       } catch (IOException e) {
-        e.printStackTrace();
-        EventBus.publish(new ExportProgressEvent("Failed writing dta xml: " + e.getMessage()));
+        String msg = "Failed writing stata dta xml: ";
+        log.error(msg, e);
+        EventBus.publish(new ExportProgressEvent(msg + ": " + e.getMessage(), briefcaseLfd));
         return false;
       }
     } finally {
@@ -2002,16 +1983,17 @@ public class ExportToDta implements ITransformFormAction {
         try {
           FileUtils.deleteDirectory(unEncryptedDir);
         } catch (IOException e) {
-          e.printStackTrace();
-          EventBus.publish(new ExportProgressEvent("Unable to remove decrypted files: "
-              + e.getMessage()));
+          String msg = "Unable to remove decrypted files";
+          log.error(msg, e);
+          EventBus.publish(new ExportProgressEvent(msg + ": " + e.getMessage(), briefcaseLfd));
           return false;
         }
       }
     }
   }
 
-  @Override
+  /**
+   * @Override
   public FilesSkipped totalFilesSkipped() {
     //Determine if all files where skipped or just some
     //Note that if totalInstances = 0 then no files were skipped
@@ -2023,10 +2005,53 @@ public class ExportToDta implements ITransformFormAction {
     } else {
       return FilesSkipped.SOME;
     }
-  }
+  }*/
 
   @Override
   public BriefcaseFormDefinition getFormDefinition() {
     return briefcaseLfd;
+  }
+
+  public static void export(Path exportDir, BriefcaseFormDefinition formDefinition, String baseFilename, boolean exportMedia, boolean overwriteFiles, Optional<LocalDate> startDate, Optional<LocalDate> endDate) {
+    log.info("exporting to : " + exportDir);
+    ExportToDta action = new ExportToDta(
+            new TerminationFuture(),
+            exportDir.toFile(),
+            formDefinition,
+            baseFilename,
+            exportMedia,
+            overwriteFiles,
+            startDate.map(ld -> Date.from(ld.atStartOfDay(systemDefault()).toInstant())).orElse(null),
+            endDate.map(ld -> Date.from(ld.atStartOfDay(systemDefault()).toInstant())).orElse(null)
+    );
+    try {
+      boolean allSuccessful = action.doAction();
+
+      if (allSuccessful && action.someSkipped())
+        EventBus.publish(new ExportSucceededWithErrorsEvent(action.getFormDefinition()));
+
+      if (allSuccessful && action.noneSkipped())
+        EventBus.publish(new ExportSucceededEvent(action.getFormDefinition()));
+
+      if (allSuccessful && action.allSkipped())
+        throw new ExportException(formDefinition, "None of the instances where exported");
+
+      if (!allSuccessful)
+        throw new ExportException(formDefinition);
+    } catch (Throwable t) {
+      throw new ExportException(formDefinition);
+    }
+  }
+
+  public boolean noneSkipped() {
+    return totalFilesSkipped == 0 || totalInstances == 0;
+  }
+
+  public boolean someSkipped() {
+    return totalInstances > 0 && totalFilesSkipped > 0 && totalFilesSkipped < totalInstances;
+  }
+
+  public boolean allSkipped() {
+    return totalInstances > 0 && totalFilesSkipped == totalInstances;
   }
 }

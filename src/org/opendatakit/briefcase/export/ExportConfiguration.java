@@ -23,6 +23,8 @@ import static org.opendatakit.briefcase.ui.MessageStrings.DIR_NOT_EXIST;
 import static org.opendatakit.briefcase.ui.MessageStrings.INVALID_DATE_RANGE_MESSAGE;
 import static org.opendatakit.briefcase.ui.StorageLocation.isUnderBriefcaseFolder;
 import static org.opendatakit.briefcase.util.FileSystemUtils.isUnderODKFolder;
+// DVB
+import static org.opendatakit.briefcase.model.ExportType.CSV;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -41,6 +43,8 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.opendatakit.briefcase.model.BriefcasePreferences;
+// DVB
+import org.opendatakit.briefcase.model.ExportType;
 
 public class ExportConfiguration {
   private static final String EXPORT_DIR = "exportDir";
@@ -50,12 +54,17 @@ public class ExportConfiguration {
   private static final String PULL_BEFORE = "pullBefore";
   private static final String PULL_BEFORE_OVERRIDE = "pullBeforeOverride";
   private static final Predicate<PullBeforeOverrideOption> ALL_EXCEPT_INHERIT = value -> value != INHERIT;
+  // DVB
+  private static final String EXPORT_TYPE = "exportType";
+  private static final Predicate<ExportType> ALL_EXCEPT_CSV = value -> value != CSV;
+
   private Optional<Path> exportDir;
   private Optional<Path> pemFile;
   private Optional<LocalDate> startDate;
   private Optional<LocalDate> endDate;
   private Optional<Boolean> pullBefore;
   private Optional<PullBeforeOverrideOption> pullBeforeOverride;
+  private Optional<ExportType> exportType;
 
   public ExportConfiguration(Optional<Path> exportDir, Optional<Path> pemFile, Optional<LocalDate> startDate, Optional<LocalDate> endDate, Optional<Boolean> pullBefore, Optional<PullBeforeOverrideOption> pullBeforeOverride) {
     this.exportDir = exportDir;
@@ -66,29 +75,46 @@ public class ExportConfiguration {
     this.pullBeforeOverride = pullBeforeOverride;
   }
 
+  // DVB : Add Optional<ExportType> exportType parametre for this overloaded constructor
+  public ExportConfiguration(Optional<Path> exportDir, Optional<Path> pemFile, Optional<LocalDate> startDate, Optional<LocalDate> endDate, Optional<Boolean> pullBefore, Optional<PullBeforeOverrideOption> pullBeforeOverride, Optional<ExportType> exportType) {
+    this.exportDir = exportDir;
+    this.pemFile = pemFile;
+    this.startDate = startDate;
+    this.endDate = endDate;
+    this.pullBefore = pullBefore;
+    this.pullBeforeOverride = pullBeforeOverride;
+    this.exportType = exportType;
+  }
+
   public static ExportConfiguration empty() {
-    return new ExportConfiguration(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    //return new ExportConfiguration(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
+    // DVB
+    return new ExportConfiguration(Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty(), Optional.empty());
   }
 
   public static ExportConfiguration load(BriefcasePreferences prefs) {
     return new ExportConfiguration(
-        prefs.nullSafeGet(EXPORT_DIR).map(Paths::get),
-        prefs.nullSafeGet(PEM_FILE).map(Paths::get),
-        prefs.nullSafeGet(START_DATE).map(LocalDate::parse),
-        prefs.nullSafeGet(END_DATE).map(LocalDate::parse),
-        prefs.nullSafeGet(PULL_BEFORE).map(Boolean::valueOf),
-        prefs.nullSafeGet(PULL_BEFORE_OVERRIDE).map(PullBeforeOverrideOption::from)
+            prefs.nullSafeGet(EXPORT_DIR).map(Paths::get),
+            prefs.nullSafeGet(PEM_FILE).map(Paths::get),
+            prefs.nullSafeGet(START_DATE).map(LocalDate::parse),
+            prefs.nullSafeGet(END_DATE).map(LocalDate::parse),
+            prefs.nullSafeGet(PULL_BEFORE).map(Boolean::valueOf),
+            prefs.nullSafeGet(PULL_BEFORE_OVERRIDE).map(PullBeforeOverrideOption::from),
+            // DVB
+            prefs.nullSafeGet(EXPORT_TYPE).map(ExportType::from)
     );
   }
 
   public static ExportConfiguration load(BriefcasePreferences prefs, String keyPrefix) {
     return new ExportConfiguration(
-        prefs.nullSafeGet(keyPrefix + EXPORT_DIR).map(Paths::get),
-        prefs.nullSafeGet(keyPrefix + PEM_FILE).map(Paths::get),
-        prefs.nullSafeGet(keyPrefix + START_DATE).map(LocalDate::parse),
-        prefs.nullSafeGet(keyPrefix + END_DATE).map(LocalDate::parse),
-        prefs.nullSafeGet(keyPrefix + PULL_BEFORE).map(Boolean::valueOf),
-        prefs.nullSafeGet(keyPrefix + PULL_BEFORE_OVERRIDE).map(PullBeforeOverrideOption::from)
+            prefs.nullSafeGet(keyPrefix + EXPORT_DIR).map(Paths::get),
+            prefs.nullSafeGet(keyPrefix + PEM_FILE).map(Paths::get),
+            prefs.nullSafeGet(keyPrefix + START_DATE).map(LocalDate::parse),
+            prefs.nullSafeGet(keyPrefix + END_DATE).map(LocalDate::parse),
+            prefs.nullSafeGet(keyPrefix + PULL_BEFORE).map(Boolean::valueOf),
+            prefs.nullSafeGet(keyPrefix + PULL_BEFORE_OVERRIDE).map(PullBeforeOverrideOption::from),
+            // DVB
+            prefs.nullSafeGet(EXPORT_TYPE).map(ExportType::from)
     );
   }
 
@@ -98,12 +124,14 @@ public class ExportConfiguration {
 
   public static List<String> keys(String keyPrefix) {
     return Arrays.asList(
-        keyPrefix + EXPORT_DIR,
-        keyPrefix + PEM_FILE,
-        keyPrefix + START_DATE,
-        keyPrefix + END_DATE,
-        keyPrefix + PULL_BEFORE,
-        keyPrefix + PULL_BEFORE_OVERRIDE
+            keyPrefix + EXPORT_DIR,
+            keyPrefix + PEM_FILE,
+            keyPrefix + START_DATE,
+            keyPrefix + END_DATE,
+            keyPrefix + PULL_BEFORE,
+            keyPrefix + PULL_BEFORE_OVERRIDE,
+            // DVB
+            keyPrefix + EXPORT_TYPE
     );
   }
 
@@ -121,17 +149,21 @@ public class ExportConfiguration {
     endDate.ifPresent(value -> map.put(keyPrefix + END_DATE, value.format(DateTimeFormatter.ISO_DATE)));
     pullBefore.ifPresent(value -> map.put(keyPrefix + PULL_BEFORE, value.toString()));
     pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).ifPresent(value -> map.put(keyPrefix + PULL_BEFORE_OVERRIDE, value.name()));
+    // DVB
+    exportType.filter(ALL_EXCEPT_CSV).ifPresent(value -> map.put(keyPrefix + EXPORT_TYPE, value.name()));
     return map;
   }
 
   public ExportConfiguration copy() {
     return new ExportConfiguration(
-        exportDir,
-        pemFile,
-        startDate,
-        endDate,
-        pullBefore,
-        pullBeforeOverride
+            exportDir,
+            pemFile,
+            startDate,
+            endDate,
+            pullBefore,
+            pullBeforeOverride,
+            // DVB
+            exportType
     );
   }
 
@@ -193,6 +225,16 @@ public class ExportConfiguration {
     return this;
   }
 
+  // DVB
+  public Optional<ExportType> getExportType() {
+    return exportType;
+  }
+
+  public ExportConfiguration setExportType(ExportType value) {
+    this.exportType = Optional.ofNullable(value);
+    return this;
+  }
+
   /**
    * Resolves if we need to pull forms depending on the pullBefore and pullBeforeOverride
    * settings with the following algorithm:
@@ -209,8 +251,8 @@ public class ExportConfiguration {
    */
   public boolean resolvePullBefore() {
     return Stream.of(
-        pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).flatMap(PullBeforeOverrideOption::asBoolean),
-        pullBefore
+            pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).flatMap(PullBeforeOverrideOption::asBoolean),
+            pullBefore
     ).filter(Optional::isPresent).map(Optional::get).findFirst().orElse(false);
   }
 
@@ -240,6 +282,11 @@ public class ExportConfiguration {
 
   public void ifPullBeforeOverridePresent(Consumer<PullBeforeOverrideOption> consumer) {
     pullBeforeOverride.ifPresent(consumer);
+  }
+
+  // DVB ifExportTypePresent
+  public void ifExportTypePresent(Consumer<ExportType> consumer) {
+    exportType.ifPresent(consumer);
   }
 
   private List<String> getErrors() {
@@ -296,11 +343,11 @@ public class ExportConfiguration {
 
   public boolean isEmpty() {
     return !exportDir.isPresent()
-        && !pemFile.isPresent()
-        && !startDate.isPresent()
-        && !endDate.isPresent()
-        && !pullBefore.isPresent()
-        && !pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).isPresent();
+            && !pemFile.isPresent()
+            && !startDate.isPresent()
+            && !endDate.isPresent()
+            && !pullBefore.isPresent()
+            && !pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).isPresent();
   }
 
   public boolean isValid() {
@@ -329,25 +376,29 @@ public class ExportConfiguration {
 
   public ExportConfiguration fallingBackTo(ExportConfiguration defaultConfiguration) {
     return new ExportConfiguration(
-        exportDir.isPresent() ? exportDir : defaultConfiguration.exportDir,
-        pemFile.isPresent() ? pemFile : defaultConfiguration.pemFile,
-        startDate.isPresent() ? startDate : defaultConfiguration.startDate,
-        endDate.isPresent() ? endDate : defaultConfiguration.endDate,
-        pullBefore.isPresent() ? pullBefore : defaultConfiguration.pullBefore,
-        pullBeforeOverride.isPresent() ? pullBeforeOverride : defaultConfiguration.pullBeforeOverride
+            exportDir.isPresent() ? exportDir : defaultConfiguration.exportDir,
+            pemFile.isPresent() ? pemFile : defaultConfiguration.pemFile,
+            startDate.isPresent() ? startDate : defaultConfiguration.startDate,
+            endDate.isPresent() ? endDate : defaultConfiguration.endDate,
+            pullBefore.isPresent() ? pullBefore : defaultConfiguration.pullBefore,
+            pullBeforeOverride.isPresent() ? pullBeforeOverride : defaultConfiguration.pullBeforeOverride,
+            // DVB
+            exportType.isPresent() ? exportType : defaultConfiguration.exportType
     );
   }
 
   @Override
   public String toString() {
     return "ExportConfiguration{" +
-        "exportDir=" + exportDir +
-        ", pemFile=" + pemFile +
-        ", startDate=" + startDate +
-        ", endDate=" + endDate +
-        ", pullBefore=" + pullBefore +
-        ", pullBeforeOverride=" + pullBeforeOverride +
-        '}';
+            "exportDir=" + exportDir +
+            ", pemFile=" + pemFile +
+            ", startDate=" + startDate +
+            ", endDate=" + endDate +
+            ", pullBefore=" + pullBefore +
+            ", pullBeforeOverride=" + pullBeforeOverride +
+            // DVB
+            ", exportType=" + exportType +
+            '}';
   }
 
   @Override
@@ -358,15 +409,19 @@ public class ExportConfiguration {
       return false;
     ExportConfiguration that = (ExportConfiguration) o;
     return Objects.equals(exportDir, that.exportDir) &&
-        Objects.equals(pemFile, that.pemFile) &&
-        Objects.equals(startDate, that.startDate) &&
-        Objects.equals(endDate, that.endDate) &&
-        Objects.equals(pullBefore, that.pullBefore) &&
-        Objects.equals(pullBeforeOverride, that.pullBeforeOverride);
+            Objects.equals(pemFile, that.pemFile) &&
+            Objects.equals(startDate, that.startDate) &&
+            Objects.equals(endDate, that.endDate) &&
+            Objects.equals(pullBefore, that.pullBefore) &&
+            Objects.equals(pullBeforeOverride, that.pullBeforeOverride) &&
+            // DVB
+            Objects.equals(exportType, that.exportType);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(exportDir, pemFile, startDate, endDate, pullBefore, pullBeforeOverride);
+    //return Objects.hash(exportDir, pemFile, startDate, endDate, pullBefore, pullBeforeOverride);
+    // DVB
+    return Objects.hash(exportDir, pemFile, startDate, endDate, pullBefore, pullBeforeOverride, exportType);
   }
 }

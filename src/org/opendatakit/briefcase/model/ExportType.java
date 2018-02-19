@@ -15,6 +15,7 @@
  */
 
 package org.opendatakit.briefcase.model;
+import java.util.stream.Stream;
 
 public enum ExportType {
     CSV(".csv and media files"),STATA(".xml stata type and media files"); // CSV, dta output types
@@ -27,5 +28,12 @@ public enum ExportType {
 
     public String toString() {
         return displayString;
+    }
+
+    public static ExportType from(String name) {
+        return Stream.of(values())
+                .filter(value -> value.name().equals(name))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("Unknown PullBeforeOverrideOption value " + name));
     }
 }

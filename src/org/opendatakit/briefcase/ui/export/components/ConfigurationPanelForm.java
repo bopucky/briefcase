@@ -22,6 +22,8 @@ import static org.opendatakit.briefcase.ui.reused.FileChooser.file;
 import static org.opendatakit.briefcase.util.FileSystemUtils.isUnderODKFolder;
 import static org.opendatakit.briefcase.util.FindDirectoryStructure.isMac;
 import static org.opendatakit.briefcase.util.FindDirectoryStructure.isWindows;
+// DVB
+import static org.opendatakit.briefcase.model.ExportType.CSV;
 
 import com.github.lgooddatepicker.components.DatePicker;
 import java.awt.Color;
@@ -47,6 +49,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import org.opendatakit.briefcase.export.PullBeforeOverrideOption;
+import org.opendatakit.briefcase.model.ExportType;
 import org.opendatakit.briefcase.ui.reused.FileChooser;
 import org.opendatakit.briefcase.util.StringUtils;
 
@@ -71,12 +74,16 @@ public class ConfigurationPanelForm extends JComponent {
   JComboBox<PullBeforeOverrideOption> pullBeforeOverrideField;
   JTextPane pullBeforeHintPanel;
   JLabel pullBeforeOverrideLabel;
+  private JComboBox<ExportType> exportTypeField;
+  private JLabel exportTypeLabel;
   private final List<Consumer<Path>> onSelectExportDirCallbacks = new ArrayList<>();
   private final List<Consumer<Path>> onSelectPemFileCallbacks = new ArrayList<>();
   private final List<Consumer<LocalDate>> onSelectStartDateCallbacks = new ArrayList<>();
   private final List<Consumer<LocalDate>> onSelectEndDateCallbacks = new ArrayList<>();
   private final List<Consumer<Boolean>> onChangePullBeforeCallbacks = new ArrayList<>();
   private final List<Consumer<PullBeforeOverrideOption>> onChangePullBeforeOverrideCallbacks = new ArrayList<>();
+  // DVB
+  private final List<Consumer<ExportType>> onChangeExportTypeCallbacks = new ArrayList<>();
   private final ConfigurationPanelMode mode;
 
   protected ConfigurationPanelForm(ConfigurationPanelMode mode) {
@@ -85,6 +92,10 @@ public class ConfigurationPanelForm extends JComponent {
     endDatePicker = createDatePicker();
     pullBeforeOverrideField = new JComboBox<>(PullBeforeOverrideOption.values());
     pullBeforeOverrideField.setSelectedItem(INHERIT);
+    // DVB
+    exportTypeField = new JComboBox<>(ExportType.values());
+    exportTypeField.setSelectedItem(CSV);
+
     $$$setupUI$$$();
     startDatePicker.getSettings().setGapBeforeButtonPixels(0);
     startDatePicker.getComponentDateTextField().setPreferredSize(exportDirField.getPreferredSize());
@@ -119,6 +130,8 @@ public class ConfigurationPanelForm extends JComponent {
     });
     pullBeforeField.addActionListener(__ -> triggerChangePullBefore());
     pullBeforeOverrideField.addActionListener(__ -> triggerChangePullBeforeOverride());
+    // DVB
+    exportTypeField.addActionListener(__ -> triggerChangeExportType());
   }
 
   public static ConfigurationPanelForm overridePanel(boolean savePasswordsConsent, boolean hasTransferSettings) {
@@ -192,6 +205,11 @@ public class ConfigurationPanelForm extends JComponent {
     pullBeforeOverrideField.setSelectedItem(value);
   }
 
+  // DVB
+  void setExportType(ExportType value) {
+    exportTypeField.setSelectedItem(value);
+  }
+
   void onSelectExportDir(Consumer<Path> callback) {
     onSelectExportDirCallbacks.add(callback);
   }
@@ -214,6 +232,11 @@ public class ConfigurationPanelForm extends JComponent {
 
   void onChangePullBeforeOverride(Consumer<PullBeforeOverrideOption> callback) {
     onChangePullBeforeOverrideCallbacks.add(callback);
+  }
+
+  // DVB
+  void onChangeExportType(Consumer<ExportType> callback) {
+    onChangeExportTypeCallbacks.add(callback);
   }
 
   void changeMode(boolean savePasswordsConsent) {
@@ -267,6 +290,11 @@ public class ConfigurationPanelForm extends JComponent {
 
   private void triggerChangePullBeforeOverride() {
     onChangePullBeforeOverrideCallbacks.forEach(callback -> callback.accept((PullBeforeOverrideOption) pullBeforeOverrideField.getSelectedItem()));
+  }
+
+  // DVB
+  private void triggerChangeExportType() {
+    onChangeExportTypeCallbacks.forEach(callback -> callback.accept((ExportType) exportTypeField.getSelectedItem()));
   }
 
 
@@ -408,6 +436,22 @@ public class ConfigurationPanelForm extends JComponent {
     gbc.gridy = 6;
     gbc.anchor = GridBagConstraints.WEST;
     container.add(pullBeforeOverrideLabel, gbc);
+    // DVB exportTypeLabel
+    exportTypeLabel = new JLabel();
+    exportTypeLabel.setText("Export type");
+    gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.gridy = 8;
+    gbc.anchor = GridBagConstraints.WEST;
+    container.add(exportTypeLabel, gbc);
+    // DVB exportTypeField
+    gbc = new GridBagConstraints();
+    gbc.gridx = 2;
+    gbc.gridy = 8;
+    gbc.gridwidth = 2;
+    gbc.anchor = GridBagConstraints.WEST;
+    container.add(exportTypeField, gbc);
+
     exportDirButtons = new JPanel();
     exportDirButtons.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
     gbc = new GridBagConstraints();

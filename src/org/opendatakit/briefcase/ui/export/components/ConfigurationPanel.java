@@ -34,6 +34,8 @@ public class ConfigurationPanel {
     configuration.ifEndDatePresent(form::setEndDate);
     configuration.ifPullBeforePresent(form::setPullBefore);
     configuration.ifPullBeforeOverridePresent(form::setPullBeforeOverride);
+    // DVB
+    configuration.ifExportTypePresent(form::setExportType);
 
     form.onSelectExportDir(path -> {
       configuration.setExportDir(path);
@@ -59,19 +61,24 @@ public class ConfigurationPanel {
       configuration.setPullBeforeOverride(pullBeforeOverrideOption);
       triggerOnChange();
     });
+    // DVB
+    form.onChangeExportType(exportType -> {
+      configuration.setExportType(exportType);
+      triggerOnChange();
+    });
   }
 
   public static ConfigurationPanel overridePanel(ExportConfiguration initialConfiguration, boolean savePasswordsConsent, boolean hasTransferSettings) {
     return new ConfigurationPanel(
-        initialConfiguration,
-        ConfigurationPanelForm.overridePanel(savePasswordsConsent, hasTransferSettings)
+            initialConfiguration,
+            ConfigurationPanelForm.overridePanel(savePasswordsConsent, hasTransferSettings)
     );
   }
 
   public static ConfigurationPanel defaultPanel(ExportConfiguration initialConfiguration, boolean savePasswordsConsent, boolean hasTransferSettings) {
     return new ConfigurationPanel(
-        initialConfiguration,
-        ConfigurationPanelForm.defaultPanel(savePasswordsConsent, hasTransferSettings)
+            initialConfiguration,
+            ConfigurationPanelForm.defaultPanel(savePasswordsConsent, hasTransferSettings)
     );
   }
 

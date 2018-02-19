@@ -38,6 +38,14 @@ import org.opendatakit.briefcase.util.ErrorsOr;
 import org.opendatakit.briefcase.util.ExportToCsv;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+// DVB
+import org.opendatakit.briefcase.util.ExportToDta;
+import org.opendatakit.briefcase.model.ExportType;
+import java.lang.reflect.Method;
+import java.lang.reflect.InvocationTargetException;
+import org.opendatakit.briefcase.operations.ExportException;
+import java.util.ArrayList;
+import java.util.List;
 
 public class ExportAction {
   private static final Logger log = LoggerFactory.getLogger(ExportAction.class);
@@ -72,7 +80,7 @@ public class ExportAction {
           .orElseThrow(() -> new RuntimeException("PEM file not present"))
       ).get());
     }
-    ExportToCsv action = new ExportToCsv(
+    /*ExportToCsv action = new ExportToCsv(
         terminationFuture,
         configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
         formDefinition,
@@ -81,8 +89,117 @@ public class ExportAction {
         false,
         configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
         configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
-    );
+    );*/
+
+    /*ExportToDta action = new ExportToDta(
+        terminationFuture,
+        configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
+        formDefinition,
+        formDefinition.getFormName(),
+        true,
+        false,
+        configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
+        configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
+    );*/
+
+    ExportToCsv action_csv = null;
+    ExportToDta action_dta = null;
+    Object action = null;
+    if(configuration.getExportType().isPresent() && configuration.getExportType().get() == ExportType.STATA){
+      // DTA / STATA
+      action = new ExportToDta(
+              terminationFuture,
+              configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
+              formDefinition,
+              formDefinition.getFormName(),
+              true,
+              false,
+              configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
+              configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
+      );
+    }
+    else if(configuration.getExportType().isPresent() && configuration.getExportType().get() == ExportType.CSV){
+      // CSV
+      action = new ExportToCsv(
+              terminationFuture,
+              configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
+              formDefinition,
+              formDefinition.getFormName(),
+              true,
+              false,
+              configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
+              configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
+      );
+    }
+
+    Method methodExport = null;
+    Method methodDoAction = null;
+    Method methodGetFormDefinition = null;
+    Method methodNoneSkipped = null;
+    Method methodSomeSkipped = null;
+    Method methodAllSkipped = null;
+    Method method = null;
+    Method method2 = null;
+
     try {
+      /*methodDoAction = action.getClass().getMethod("doAction", (Class<?>[]) null);
+      methodGetFormDefinition = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
+      methodNoneSkipped = action.getClass().getMethod("noneSkipped", (Class<?>[]) null);
+      methodSomeSkipped= action.getClass().getMethod("someSkipped", (Class<?>[]) null);
+      methodAllSkipped= action.getClass().getMethod("allSkipped", (Class<?>[]) null);
+
+      boolean allSuccessful = (boolean) methodDoAction.invoke(action, (Object[]) null);
+      BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) methodGetFormDefinition.invoke(action, (Object[]) null);
+      boolean noneSkipped = (boolean) methodNoneSkipped.invoke(action, (Object[]) null);
+      boolean someSkipped = (boolean) methodSomeSkipped.invoke(action, (Object[]) null);
+      boolean allSkipped = (boolean) methodAllSkipped.invoke(action, (Object[]) null);
+      */
+
+      method = action.getClass().getMethod("doAction", (Class<?>[]) null);
+      boolean allSuccessful = (boolean) method.invoke(action, (Object[]) null);
+
+      method = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
+      BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) method.invoke(action, (Object[]) null);
+
+      method = action.getClass().getMethod("noneSkipped", (Class<?>[]) null);
+      boolean noneSkipped = (boolean) method.invoke(action, (Object[]) null);
+
+      method = action.getClass().getMethod("someSkipped", (Class<?>[]) null);
+      boolean someSkipped = (boolean) method.invoke(action, (Object[]) null);
+
+      method = action.getClass().getMethod("allSkipped", (Class<?>[]) null);
+      boolean allSkipped = (boolean) method.invoke(action, (Object[]) null);
+
+      if (!allSuccessful){
+        EventBus.publish(new ExportFailedEvent(formDefinition1));
+      }
+
+      if (allSuccessful && noneSkipped){
+        EventBus.publish(new ExportSucceededEvent(formDefinition1));
+      }
+
+      if (allSuccessful && someSkipped){
+        EventBus.publish(new ExportSucceededWithErrorsEvent(formDefinition1));
+      }
+
+      if (allSuccessful && allSkipped){
+        EventBus.publish(new ExportFailedEvent(formDefinition1));
+      }
+
+
+    } catch (IllegalAccessException | InvocationTargetException | SecurityException | NoSuchMethodException | ExportException n){
+      log.error("export action failed", n);
+      try {
+        methodGetFormDefinition = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
+        BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) methodGetFormDefinition.invoke(action, (Object[]) null);
+        EventBus.publish(new ExportFailedEvent(formDefinition1));
+      }catch (IllegalAccessException | InvocationTargetException | SecurityException | NoSuchMethodException | ExportException e) {
+        log.error("export action failed", e);
+      }
+    }
+
+
+    /*try {
       boolean allSuccessful = action.doAction();
 
       if (!allSuccessful)
@@ -99,7 +216,7 @@ public class ExportAction {
     } catch (Exception e) {
       log.error("export action failed", e);
       EventBus.publish(new ExportFailedEvent(action.getFormDefinition()));
-    }
+    }*/
   }
 
 }
