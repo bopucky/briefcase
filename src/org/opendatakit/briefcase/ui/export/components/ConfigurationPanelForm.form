@@ -201,6 +201,15 @@
           </component>
         </children>
       </grid>
+      <component id="bd9c9" class="javax.swing.JCheckBox" binding="overwriteFilesField">
+        <constraints>
+          <grid row="8" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="3" anchor="8" fill="0" indent="0" use-parent-layout="false"/>
+          <gridbag weightx="0.0" weighty="0.0"/>
+        </constraints>
+        <properties>
+          <text value="Overwrite existing files"/>
+        </properties>
+      </component>
       <vspacer id="3b7ca">
         <constraints>
           <grid row="8" column="2" row-span="1" col-span="1" vsize-policy="6" hsize-policy="1" anchor="0" fill="2" indent="0" use-parent-layout="false"/>
@@ -213,18 +222,8 @@
           <gridbag weightx="0.0" weighty="0.0"/>
         </constraints>
         <properties>
-          <labelFor value="ec9d1"/>
+          <labelFor value="e72d8"/>
           <text value="Export type"/>
-        </properties>
-      </component>
-      <component id="ec9d1" class="javax.swing.JComboBox" binding="exportTypeField">
-        <constraints>
-          <grid row="9" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
-          <gridbag weightx="0.0" weighty="0.0"/>
-        </constraints>
-        <properties>
-          <model/>
-          <name value="exportType"/>
         </properties>
       </component>
       <toolbar id="6b999">
@@ -260,6 +259,13 @@
         <border type="none"/>
         <children/>
       </toolbar>
+      <component id="e72d8" class="javax.swing.JComboBox" binding="exportTypeField" custom-create="true">
+        <constraints>
+          <grid row="9" column="2" row-span="1" col-span="1" vsize-policy="0" hsize-policy="2" anchor="8" fill="1" indent="0" use-parent-layout="false"/>
+          <gridbag weightx="0.0" weighty="0.0"/>
+        </constraints>
+        <properties/>
+      </component>
     </children>
   </grid>
 </form>

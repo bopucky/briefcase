@@ -86,7 +86,7 @@ public class ExportAction {
         formDefinition,
         formDefinition.getFormName(),
         true,
-        false,
+        configuration.getOverwriteExistingFiles().orElse(false),
         configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
         configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
     );*/
@@ -154,38 +154,38 @@ public class ExportAction {
       boolean someSkipped = (boolean) methodSomeSkipped.invoke(action, (Object[]) null);
       boolean allSkipped = (boolean) methodAllSkipped.invoke(action, (Object[]) null);
       */
+      if(action != null){
+        method = action.getClass().getMethod("doAction", (Class<?>[]) null);
+        boolean allSuccessful = (boolean) method.invoke(action, (Object[]) null);
 
-      method = action.getClass().getMethod("doAction", (Class<?>[]) null);
-      boolean allSuccessful = (boolean) method.invoke(action, (Object[]) null);
+        method = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
+        BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) method.invoke(action, (Object[]) null);
 
-      method = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
-      BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) method.invoke(action, (Object[]) null);
+        method = action.getClass().getMethod("noneSkipped", (Class<?>[]) null);
+        boolean noneSkipped = (boolean) method.invoke(action, (Object[]) null);
 
-      method = action.getClass().getMethod("noneSkipped", (Class<?>[]) null);
-      boolean noneSkipped = (boolean) method.invoke(action, (Object[]) null);
+        method = action.getClass().getMethod("someSkipped", (Class<?>[]) null);
+        boolean someSkipped = (boolean) method.invoke(action, (Object[]) null);
 
-      method = action.getClass().getMethod("someSkipped", (Class<?>[]) null);
-      boolean someSkipped = (boolean) method.invoke(action, (Object[]) null);
+        method = action.getClass().getMethod("allSkipped", (Class<?>[]) null);
+        boolean allSkipped = (boolean) method.invoke(action, (Object[]) null);
 
-      method = action.getClass().getMethod("allSkipped", (Class<?>[]) null);
-      boolean allSkipped = (boolean) method.invoke(action, (Object[]) null);
+        if (!allSuccessful){
+          EventBus.publish(new ExportFailedEvent(formDefinition1));
+        }
 
-      if (!allSuccessful){
-        EventBus.publish(new ExportFailedEvent(formDefinition1));
+        if (allSuccessful && noneSkipped){
+          EventBus.publish(new ExportSucceededEvent(formDefinition1));
+        }
+
+        if (allSuccessful && someSkipped){
+          EventBus.publish(new ExportSucceededWithErrorsEvent(formDefinition1));
+        }
+
+        if (allSuccessful && allSkipped){
+          EventBus.publish(new ExportFailedEvent(formDefinition1));
+        }
       }
-
-      if (allSuccessful && noneSkipped){
-        EventBus.publish(new ExportSucceededEvent(formDefinition1));
-      }
-
-      if (allSuccessful && someSkipped){
-        EventBus.publish(new ExportSucceededWithErrorsEvent(formDefinition1));
-      }
-
-      if (allSuccessful && allSkipped){
-        EventBus.publish(new ExportFailedEvent(formDefinition1));
-      }
-
 
     } catch (IllegalAccessException | InvocationTargetException | SecurityException | NoSuchMethodException | ExportException n){
       log.error("export action failed", n);

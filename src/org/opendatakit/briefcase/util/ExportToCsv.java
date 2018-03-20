@@ -20,12 +20,13 @@ import static java.time.ZoneId.systemDefault;
 
 import java.io.ByteArrayInputStream;
 import java.io.File;
-import java.io.FileFilter;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
+import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.security.InvalidAlgorithmParameterException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
@@ -34,7 +35,6 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -74,8 +74,8 @@ public class ExportToCsv implements ITransformFormAction {
   int totalFilesSkipped = 0;
   int totalInstances = 0;
   int processedInstances = 0;
-  private final Map<TreeElement, OutputStreamWriter> fileMap = new HashMap<TreeElement, OutputStreamWriter>();
-  private final Map<String, String> fileHashMap = new HashMap<String, String>();
+  private final Map<TreeElement, OutputStreamWriter> fileMap = new HashMap<>();
+  private final Map<String, String> fileHashMap = new HashMap<>();
   private final TerminationFuture terminationFuture;
   private final File outputDir;
   private final BriefcaseFormDefinition briefcaseLfd;
@@ -129,19 +129,14 @@ public class ExportToCsv implements ITransformFormAction {
       return false;
     }
 
-    File[] instances = instancesDir.listFiles(new FileFilter() {
-      public boolean accept(File file) {
-        // do we have a folder with submission.xml inside
-        return file.isDirectory() && new File(file, "submission.xml").exists();
-      }
-    });
+    File[] instances = instancesDir.listFiles(file -> file.isDirectory() && new File(file, "submission.xml").exists());
     totalInstances = instances.length;
 
     // Sorts the instances by the submission date. If no submission date, we
     // assume it to be latest.
     if (instances != null) {
-      Arrays.sort(instances, new Comparator<File>() {
-        public int compare(File f1, File f2) {
+      Arrays.sort(instances, (f1, f2) ->
+        {
           try {
             if (f1.isDirectory() && f2.isDirectory()) {
               File submission1 = new File(f1, "submission.xml");
@@ -162,8 +157,8 @@ public class ExportToCsv implements ITransformFormAction {
             log.error("failed to sort submissions", e);
           }
           return 0;
-        }
-      });
+        });
+
     }
 
     for (File instanceDir : instances) {
@@ -205,7 +200,7 @@ public class ExportToCsv implements ITransformFormAction {
   }
 
   private String getFullName(AbstractTreeElement e, TreeElement group) {
-    List<String> names = new ArrayList<String>();
+    List<String> names = new ArrayList<>();
     while (e != null && e != group) {
       names.add(e.getName());
       e = e.getParent();
@@ -241,7 +236,7 @@ public class ExportToCsv implements ITransformFormAction {
   }
 
   private List<Element> findElementList(Element submissionElement, String name) {
-    List<Element> ecl = new ArrayList<Element>();
+    List<Element> ecl = new ArrayList<>();
     int maxChildren = submissionElement.getChildCount();
     for (int i = 0; i < maxChildren; i++) {
       if (submissionElement.getType(i) == Node.ELEMENT) {
@@ -791,34 +786,28 @@ public class ExportToCsv implements ITransformFormAction {
     EventBus.publish(new ExportProgressPercentageEvent((processedInstances * 100.0) / totalInstances, briefcaseLfd));
 
     // If we are encrypted, be sure the temporary directory
-    // that will hold the unencrypted files is created and empty.
+    // that will hold the unencrypted files is created.
     // If we aren't encrypted, the temporary directory
     // is the same as the instance directory.
 
     File unEncryptedDir;
     if (briefcaseLfd.isFileEncryptedForm()) {
-      // create or clean-up the temp directory that will hold the unencrypted
+      // create the temp directory that will hold the unencrypted
       // files. Do this in the outputDir so that the briefcase storage location
       // can be a read-only network mount. issue 676.
-      unEncryptedDir = new File(outputDir, ".temp");
-
-      if (unEncryptedDir.exists()) {
-        // silently delete it...
-        try {
-          FileUtils.deleteDirectory(unEncryptedDir);
-        } catch (IOException e) {
-          String msg = "Unable to delete stale temp directory: " + unEncryptedDir.getAbsolutePath();
-          log.warn(msg, e);
-          EventBus.publish(new ExportProgressEvent(msg, briefcaseLfd));
-          return false;
-        }
-      }
-
-      if (!unEncryptedDir.mkdirs()) {
-        EventBus.publish(new ExportProgressEvent("Unable to create temp directory: "
-            + unEncryptedDir.getAbsolutePath(), briefcaseLfd));
+      Path path;
+      try {
+        path = Files.createTempDirectory(Paths.get(outputDir.toURI()), ".temp");
+      } catch (IOException e) {
+        String msg = "Unable to create temp directory.";
+        log.error(msg, e);
+        EventBus.publish(new ExportProgressEvent(msg + " Cause : "
+                + e.toString(), briefcaseLfd));
         return false;
       }
+
+      unEncryptedDir = path.toFile();
+
     } else {
       unEncryptedDir = instanceDir;
     }

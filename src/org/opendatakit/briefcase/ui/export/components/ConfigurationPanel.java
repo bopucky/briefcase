@@ -34,9 +34,8 @@ public class ConfigurationPanel {
     configuration.ifEndDatePresent(form::setEndDate);
     configuration.ifPullBeforePresent(form::setPullBefore);
     configuration.ifPullBeforeOverridePresent(form::setPullBeforeOverride);
-    // DVB
+    configuration.ifOverwriteExistingFilesPresent(form::setOverwriteExistingFiles);
     configuration.ifExportTypePresent(form::setExportType);
-
     form.onSelectExportDir(path -> {
       configuration.setExportDir(path);
       triggerOnChange();
@@ -61,10 +60,12 @@ public class ConfigurationPanel {
       configuration.setPullBeforeOverride(pullBeforeOverrideOption);
       triggerOnChange();
     });
-    // DVB
+    form.onChangeOverwriteExistingFiles(overwriteExistingFiles -> {
+        configuration.setOverwriteExistingFiles(overwriteExistingFiles);
+        triggerOnChange();
+    });
     form.onChangeExportType(exportType -> {
-      configuration.setExportType(exportType);
-      triggerOnChange();
+        configuration.setExportType(exportType);
     });
   }
 

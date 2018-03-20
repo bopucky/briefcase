@@ -59,8 +59,8 @@ public class ExportPanelForm {
 
   public static ExportPanelForm from(ExportForms forms, ConfigurationPanel confPanel) {
     return new ExportPanelForm(
-        confPanel,
-        FormsTable.from(forms)
+            confPanel,
+            FormsTable.from(forms)
     );
   }
 

@@ -17,7 +17,6 @@
 package org.opendatakit.briefcase.util;
 
 import java.io.File;
-import java.io.FileFilter;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -55,6 +54,10 @@ public class FindDirectoryStructure {
     return os.contains("windows");
   }
 
+  public static String getOsName() {
+    return isMac() ? "mac" : isWindows() ? "windows" : "linux";
+  }
+
   /**
    * Searches mounted drives for /odk/instances and returns a list of
    * positive results. Works for Windows, Mac, and Linux operating
@@ -75,7 +78,7 @@ public class FindDirectoryStructure {
     } else // Assume Unix
     {
       String username = System.getProperty(USER_NAME);
-      List<File> mountslist = new ArrayList<File>();
+      List<File> mountslist = new ArrayList<>();
       mountslist.add( new File("/mnt"));
       mountslist.add( new File("/media"));
 
@@ -117,7 +120,7 @@ public class FindDirectoryStructure {
    */
   private static List<File> search(File[] mounts, boolean isDirectChild) {
 
-    List<File> candidates = new ArrayList<File>();
+    List<File> candidates = new ArrayList<>();
 
     for ( File f : mounts ) {
       if ( f.exists() && f.isDirectory() ) {
@@ -126,12 +129,7 @@ public class FindDirectoryStructure {
             candidates.add(f);
           }
         } else {
-          File[] subdirs = f.listFiles(new FileFilter() {
-            @Override
-            public boolean accept(File f) {
-              return f.isDirectory();
-            }
-          });
+          File[] subdirs = f.listFiles(file -> file.isDirectory());
 
           for ( File s : subdirs ) {
             if ( hasOdkInstancesDirectory(s) ) {
