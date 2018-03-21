@@ -15,6 +15,7 @@
  */
 package org.opendatakit.briefcase.ui.export.components;
 
+import static javax.swing.JOptionPane.PLAIN_MESSAGE;
 import static javax.swing.JOptionPane.YES_NO_OPTION;
 import static javax.swing.JOptionPane.YES_OPTION;
 import static javax.swing.JOptionPane.showConfirmDialog;
@@ -303,7 +304,7 @@ public class ConfigurationPanelForm extends JComponent {
   }
 
   private boolean confirmOverwriteFiles() {
-    if (showConfirmDialog(this, "Overwrite existing files?", "", YES_NO_OPTION) == YES_OPTION)
+    if (showConfirmDialog(this, "Overwrite existing files?", "", YES_NO_OPTION, PLAIN_MESSAGE) == YES_OPTION)
       return true;
     overwriteFilesField.setSelected(false);
     return false;
@@ -361,6 +362,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 0;
+    gbc.gridwidth = 2;
     gbc.weightx = 1.0;
     gbc.anchor = GridBagConstraints.WEST;
     gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -370,6 +372,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 1;
+    gbc.gridwidth = 2;
     gbc.weightx = 1.0;
     gbc.anchor = GridBagConstraints.WEST;
     gbc.fill = GridBagConstraints.HORIZONTAL;
@@ -377,14 +380,14 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 2;
-    gbc.gridwidth = 2;
+    gbc.gridwidth = 3;
     gbc.weightx = 1.0;
     gbc.fill = GridBagConstraints.HORIZONTAL;
     container.add(startDatePicker, gbc);
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 3;
-    gbc.gridwidth = 2;
+    gbc.gridwidth = 3;
     gbc.weightx = 1.0;
     gbc.fill = GridBagConstraints.HORIZONTAL;
     container.add(endDatePicker, gbc);
@@ -417,7 +420,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 5;
-    gbc.gridwidth = 2;
+    gbc.gridwidth = 3;
     gbc.anchor = GridBagConstraints.WEST;
     container.add(pullBeforeField, gbc);
     pullBeforeHintPanel = new JTextPane();
@@ -430,7 +433,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 7;
-    gbc.gridwidth = 2;
+    gbc.gridwidth = 3;
     gbc.fill = GridBagConstraints.BOTH;
     container.add(pullBeforeHintPanel, gbc);
     final DefaultComboBoxModel defaultComboBoxModel1 = new DefaultComboBoxModel();
@@ -438,6 +441,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 6;
+    gbc.gridwidth = 2;
     gbc.anchor = GridBagConstraints.WEST;
     gbc.fill = GridBagConstraints.HORIZONTAL;
     container.add(pullBeforeOverrideField, gbc);
@@ -445,6 +449,7 @@ public class ConfigurationPanelForm extends JComponent {
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 4;
+    gbc.gridwidth = 2;
     gbc.fill = GridBagConstraints.VERTICAL;
     container.add(spacer5, gbc);
     pullBeforeOverrideLabel = new JLabel();
@@ -457,7 +462,7 @@ public class ConfigurationPanelForm extends JComponent {
     exportDirButtons = new JPanel();
     exportDirButtons.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
     gbc = new GridBagConstraints();
-    gbc.gridx = 3;
+    gbc.gridx = 4;
     gbc.gridy = 0;
     gbc.fill = GridBagConstraints.BOTH;
     container.add(exportDirButtons, gbc);
@@ -472,7 +477,7 @@ public class ConfigurationPanelForm extends JComponent {
     pemFileButtons = new JPanel();
     pemFileButtons.setLayout(new FlowLayout(FlowLayout.LEFT, 0, 0));
     gbc = new GridBagConstraints();
-    gbc.gridx = 3;
+    gbc.gridx = 4;
     gbc.gridy = 1;
     gbc.fill = GridBagConstraints.BOTH;
     container.add(pemFileButtons, gbc);
@@ -488,44 +493,35 @@ public class ConfigurationPanelForm extends JComponent {
     overwriteFilesField.setText("Overwrite existing files");
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
-    gbc.gridy = 8;
+    gbc.gridy = 9;
+    gbc.gridwidth = 2;
     gbc.anchor = GridBagConstraints.WEST;
     container.add(overwriteFilesField, gbc);
     final JPanel spacer6 = new JPanel();
     gbc = new GridBagConstraints();
+    gbc.gridx = 0;
+    gbc.gridy = 8;
+    gbc.gridwidth = 4;
+    gbc.fill = GridBagConstraints.VERTICAL;
+    container.add(spacer6, gbc);
+    final JPanel spacer7 = new JPanel();
+    gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 8;
     gbc.fill = GridBagConstraints.VERTICAL;
-    container.add(spacer6, gbc);
+    container.add(spacer7, gbc);
     exportTypeLabel = new JLabel();
     exportTypeLabel.setText("Export type");
     gbc = new GridBagConstraints();
     gbc.gridx = 0;
-    gbc.gridy = 9;
+    gbc.gridy = 10;
     gbc.anchor = GridBagConstraints.WEST;
     container.add(exportTypeLabel, gbc);
-    final JToolBar toolBar1 = new JToolBar();
+    exportTypeField.setAlignmentX(0.5f);
     gbc = new GridBagConstraints();
     gbc.gridx = 2;
     gbc.gridy = 10;
-    gbc.fill = GridBagConstraints.HORIZONTAL;
-    container.add(toolBar1, gbc);
-    final JToolBar toolBar2 = new JToolBar();
-    gbc = new GridBagConstraints();
-    gbc.gridx = 2;
-    gbc.gridy = 11;
-    gbc.fill = GridBagConstraints.HORIZONTAL;
-    container.add(toolBar2, gbc);
-    final JToolBar toolBar3 = new JToolBar();
-    gbc = new GridBagConstraints();
-    gbc.gridx = 0;
-    gbc.gridy = 12;
-    gbc.fill = GridBagConstraints.HORIZONTAL;
-    container.add(toolBar3, gbc);
-    gbc = new GridBagConstraints();
-    gbc.gridx = 2;
-    gbc.gridy = 9;
-    gbc.anchor = GridBagConstraints.WEST;
+    gbc.gridwidth = 2;
     gbc.fill = GridBagConstraints.HORIZONTAL;
     container.add(exportTypeField, gbc);
     exportTypeLabel.setLabelFor(exportTypeField);
