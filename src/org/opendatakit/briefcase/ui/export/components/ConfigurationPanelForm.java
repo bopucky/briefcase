@@ -72,7 +72,6 @@ public class ConfigurationPanelForm extends JComponent {
   JTextPane pullBeforeHintPanel;
   JLabel pullBeforeOverrideLabel;
   private JCheckBox overwriteFilesField;
-  // DVB
   private JComboBox<ExportType> exportTypeField = new JComboBox<>(ExportType.values());
   private JLabel exportTypeLabel;
   private final List<Consumer<Path>> onSelectExportDirCallbacks = new ArrayList<>();
@@ -131,7 +130,6 @@ public class ConfigurationPanelForm extends JComponent {
       if (!overwriteFilesField.isSelected() || confirmOverwriteFiles())
         triggerOverwriteExistingFiles();
     });
-    // DVB
     exportTypeField.addActionListener(__ -> triggerChangeExportType());
   }
 
@@ -212,6 +210,7 @@ public class ConfigurationPanelForm extends JComponent {
 
   void setExportType(ExportType value) {
     exportTypeField.setSelectedItem(value);
+    triggerChangeExportType();
   }
 
   void onSelectExportDir(Consumer<Path> callback) {
@@ -310,7 +309,6 @@ public class ConfigurationPanelForm extends JComponent {
     return false;
   }
 
-  // DVB
   private void triggerChangeExportType() {
     onChangeExportTypeCallbacks.forEach(callback -> callback.accept((ExportType) exportTypeField.getSelectedItem()));
   }

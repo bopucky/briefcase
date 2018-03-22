@@ -34,6 +34,6 @@ public enum ExportType {
         return Stream.of(values())
                 .filter(value -> value.name().equals(name))
                 .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("Unknown PullBeforeOverrideOption value " + name));
+                .orElseThrow(() -> new IllegalArgumentException("Unknown ExportTypeOption value " + name));
     }
 }

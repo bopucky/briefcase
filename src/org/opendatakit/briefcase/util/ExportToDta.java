@@ -69,7 +69,6 @@ public class ExportToDta implements ITransformFormAction {
 
   private static final String MEDIA_DIR = "media";
 
-  //static final Logger log = Logger.getLogger(ExportToDta.class.getName());
   private static final Log log = LogFactory.getLog(ExportToCsv.class);
 
   File outputDir;
@@ -120,10 +119,8 @@ public class ExportToDta implements ITransformFormAction {
   Map<String,String> variable_labelsMap;
   Map<TreeElement, Document> docMap = new HashMap<TreeElement, Document>();
   Map<Document, Map<String,String>> docVarsMap = new HashMap<Document, Map<String,String>>();
-  //Map<Document, Map<String,Integer>> docVarsMap = new HashMap<Document, Map<String,Integer>>();
   Map<Element,List<StringBuilder>> valsMapBufs = new HashMap<Element,List<StringBuilder>>();
   Map<String,String> allVallabsMap = new HashMap<String,String>();
-  //Map<String,String> repeatMap = new HashMap<String,String>();
   Map<String,Integer> repeatMap = new HashMap<String,Integer>();
   Map<String,Integer> repeatMapTmp = new HashMap<String,Integer>();
   // repeatVarsMap maps long/full variable name to short name
@@ -263,18 +260,6 @@ public class ExportToDta implements ITransformFormAction {
       writeSpecialManual(the_doc,w);
       w.flush();
 
-      /*
-      // Now write <data> xml fragments
-      processDtaData(the_doc, w);
-      w.flush();
-
-
-      // Now print allVallabs
-      w.write("<value_labels>");
-      w.write(allVallabs.toString());
-      w.write("</value_labels>");
-      */
-
       // Write </dta> close tag
       w.write("<dta>");
       w.flush();
@@ -296,12 +281,13 @@ public class ExportToDta implements ITransformFormAction {
     StringBuffer data= new StringBuffer();
     StringBuffer variable_labels= new StringBuffer();
     StringBuffer question_label = new StringBuffer();
+    StringBuilder vallabs_list = new StringBuilder();
 
     Map<String,String> varsMap = docVarsMap.get(the_doc);
-    //Map<String,Integer> varsMap = docVarsMap.get(the_doc);
 
     String the_type = null;
     String the_fmt = null;
+    String the_vallab = null;
 
     boolean res = false;
 
@@ -345,7 +331,6 @@ public class ExportToDta implements ITransformFormAction {
         new_varname = varname;
       }
 
-      //b.append(makeStataVarName(varname));
       String stataVarName = makeStataVarName(new_varname);
       b.append(stataVarName);
       typelist.append("<type ").append("varname=").append("\"")
@@ -385,7 +370,7 @@ public class ExportToDta implements ITransformFormAction {
       question_label.delete(0,question_label.length());
 
       //<value_labels><vallab>...
-      if(allVallabsMap.containsKey(varname) && !allVallabsDone.containsKey(new_varname)){
+      /*if(allVallabsMap.containsKey(varname) && !allVallabsDone.containsKey(new_varname) && varsMap.containsKey(varname)){
         allVallabs.append("<vallab").append(" ")
                 .append("name=").append("\"").append(new_varname).append("\"")
                 .append(">")
@@ -393,6 +378,16 @@ public class ExportToDta implements ITransformFormAction {
                 .append("</vallab>");
         allVallabsDone.put(new_varname,null);
 
+      }*/
+
+      //alt method for creating vallabs relevant to the document
+      the_vallab = allVallabsMap.get(varname);
+      if(the_vallab != null){
+        vallabs_list.append("<vallab").append(" ")
+                .append("name=").append("\"").append(new_varname).append("\"")
+                .append(">")
+                .append(the_vallab)
+                .append("</vallab>");
       }
 
       // clear this
@@ -421,7 +416,8 @@ public class ExportToDta implements ITransformFormAction {
 
       // Now print allVallabs
       w.write("<value_labels>");
-      w.write(allVallabs.toString());
+      //w.write(allVallabs.toString());
+      w.write(vallabs_list.toString());
       w.write("</value_labels>");
       w.flush();
 
@@ -455,10 +451,7 @@ public class ExportToDta implements ITransformFormAction {
     }catch(IllegalAccessException | InvocationTargetException | SecurityException | NoSuchMethodException n){
       n.printStackTrace();
       return false;
-    }/*catch (IllegalAccessException | InvocationTargetException | SecurityException a){
-      a.printStackTrace();
-      return false;
-    }*/
+    }
 
     try {
       if((Integer) resultsize >0){
@@ -471,28 +464,8 @@ public class ExportToDta implements ITransformFormAction {
             //find parent <vallab> associated with this question
             sz = q.getBind().getReference().toString().split("/").length;
             the_vallab = q.getBind().getReference().toString();
-
-            /*
-            //the_vallab = q.getBind().getReference().toString().split("/")[sz-1];
-            vallab = the_doc.createElement(null,"vallab");
-            vallab.setName("vallab");
-            vallab.setAttribute(null,"name",makeStataVarName(the_vallab));
-            */
             question_label = q.getLabelInnerText();
             question_tid = q.getTextID();
-
-            /*
-            // Tokenise "id" with '/' and obtain unique key of translation in iTextMap
-            the_id = question_tid!=null ? question_tid.split("/") : null;
-            the_key = null;
-            if(the_id!=null && the_id.length>=2){
-              the_key = the_id[the_id.length-2] + "/" + the_id[the_id.length-1];
-            }
-            question_tid = question_tid!=null ? iTextMap.get(the_key) : question_tid;
-
-            //question_tid = question_tid!=null ? iTextMap.get(question_tid) : question_tid;
-            question_label = question_label==null && question_tid!=null ? question_tid : (question_label==null ? "" : question_label);
-            */
 
             // ALT: to obtain unique key of translation in iTextMap
             the_key = question_tid!=null ? question_tid.replace(":label","") : null;
@@ -507,39 +480,13 @@ public class ExportToDta implements ITransformFormAction {
                 txt = ch.getLabelInnerText();
                 tid = ch.getTextID();
 
-                /*
-                // Tokenise "id" with '/' and obtain unique key of translation in iTextMap
-                the_id = tid!=null ? tid.split("/") : null;
-                the_key = null;
-                if(the_id!=null && the_id.length>=2){
-                  the_key = the_id[the_id.length-2] + "/" + the_id[the_id.length-1];
-                }
-                the_tid = tid!=null ? iTextMap.get(the_key) : tid;
-
-                //the_tid = tid!=null ? iTextMap.get(tid) : tid;
-                // Temp: need to check why iTextMap.get(tid) returns null for tid
-                tid = the_tid!=null ? the_tid : tid;
-                txt = txt == null && tid !=null ? tid : (txt == null ? "" : txt);
-                */
-
-                // ALT: to obtain unique key of translation in iTextMap
-
                 // ALT: to obtain unique key of translation in iTextMap
                 the_key = tid!=null ? tid.replace(":label","") : null;
                 the_tid = tid!=null ? iTextMap.get(the_key) : tid;
 
-                //the_tid = tid!=null ? iTextMap.get(tid) : tid;
                 // Temp: need to check why iTextMap.get(tid) returns null for tid
                 tid = the_tid!=null ? the_tid : tid;
                 txt = txt == null && tid !=null ? tid : (txt == null ? "" : txt);
-
-                /*
-                Element label = the_doc.createElement(null,"label");
-                label.setAttribute(null,"value", ch.getValue());
-                label.addChild(Node.TEXT,txt);
-                vallab.addChild(Node.ELEMENT,label);
-                */
-
                 // ALT
                 // <label>...
                 b.append("<label").append(" ")
@@ -549,25 +496,6 @@ public class ExportToDta implements ITransformFormAction {
                         .append("</label>");
               }
 
-              /*
-              Element value_labels = the_doc.getElement(null,"dta").getElement(null,"value_labels");
-              value_labels.addChild(Node.ELEMENT,vallab);
-              */
-
-              /*
-              //<vallab>...
-              String stataVarName = makeStataVarName(the_vallab);
-              if(!allVallabsMap.containsKey(stataVarName)){
-                allVallabs.append("<vallab").append(" ")
-                        .append("name=").append("\"").append(stataVarName).append("\"")
-                        .append(">")
-                        .append(b.toString())
-                        .append("</vallab>");
-                //allVallabsMap.put(stataVarName,the_vallab);
-                //allVallabsMap.put(the_vallab,stataVarName);
-                allVallabsMap.put(the_vallab,b.toString());
-              }
-              */
               allVallabsMap.put(the_vallab,b.toString());
 
               // clear
@@ -596,13 +524,6 @@ public class ExportToDta implements ITransformFormAction {
     }catch (ParsingException p){
       p.printStackTrace();
     }
-    /*XPath xPath = XPathFactory.newInstance().newXPath();
-    try {
-      XPathExpression expr = xPath.compile("//translation[@default=\"true()\"]");
-    }catch (XPathExpressionException ex){
-      ex.printStackTrace();
-    }*/
-
 
     try {
       Element itext = f.getElement(null, "html").getElement(null, "head").getElement(null, "model").getElement(null, "itext");
@@ -660,19 +581,6 @@ public class ExportToDta implements ITransformFormAction {
                   value_el = (Element) value;
                   // value_el.getText(0)
                   the_text = XFormParser.getXMLText(value_el,true).replaceAll("\\<[^>]*>","");
-                  /*
-                  // Tokenise "id" with '/' and create unique using the last two entries to save memory
-                  //the_id = tr_el.getAttributeValue(null, "id").split("/");
-                  the_key = null;
-                  if(the_id!=null && the_id.length>=2){
-                    the_key = the_id[the_id.length-2] + "/" + the_id[the_id.length-1];
-                    iTextMap.put(the_key, the_text);
-                  }
-                  if(the_id!=null && the_id.length<2){
-                    // we have an unexpected format for "id"
-                    log.info("Unexpected format for \"id\" of "+the_id.toString());
-                  }
-                  */
                   the_key = tr_el.getAttributeValue(null, "id").replace(":label","");
                   if(the_key!=null && the_key.length()>0){
                     iTextMap.put(the_key, the_text);
@@ -710,7 +618,6 @@ public class ExportToDta implements ITransformFormAction {
     //Get observation values for this document
     // Get varsMap
     Map<String,String> varsMap = docVarsMap.get(the_doc);
-    //Map<String,Integer> varsMap = docVarsMap.get(the_doc);
 
     // Update nvar
     try {
@@ -1327,8 +1234,6 @@ public class ExportToDta implements ITransformFormAction {
           }
 
           s.append("<v").append(" ")
-                  //.append("varname=").append("\"").append(current.getName()).append("\"")
-                  //.append("varname=").append("\"").append(makeStataVarName(b.toString())).append("\"")
                   .append("varname=").append("\"").append(makeStataVarName(new_varname)).append("\"")
                   .append(">")
                   .append(the_val)
@@ -1345,8 +1250,6 @@ public class ExportToDta implements ITransformFormAction {
             Integer val2 = Integer.parseInt(the_val);
             if(val2 instanceof Integer && Math.abs(val2)>=0){
               // Treat all Integers as Stata double in case values are mixed for variable
-              //typelistMap.put(current.getName(),"double");
-              //fmtlistMap.put(current.getName(),"%15.0g");
               typelistMap.put(b.toString(),"double");
               fmtlistMap.put(b.toString(),"%15.0g");
             }
@@ -1356,8 +1259,6 @@ public class ExportToDta implements ITransformFormAction {
               Double vald = Double.parseDouble(the_val);
               Float valf = Float.parseFloat(the_val);
               if((vald instanceof Double || valf instanceof Float) && (Math.abs(vald)>=0 || Math.abs(valf.floatValue())>=0)){
-                //typelistMap.put(current.getName(),"double");
-                //fmtlistMap.put(current.getName(),"%15.0g");
                 typelistMap.put(b.toString(),"double");
                 fmtlistMap.put(b.toString(),"%15.0g");
               }
@@ -1556,7 +1457,6 @@ public class ExportToDta implements ITransformFormAction {
 
           } else if (current.getNumChildren() == 0 && current != briefcaseLfd.getSubmissionElement()) {
             // assume fields that don't have children are string fields.
-            //fullname = getFullVarName(current, primarySet);
             b.append(getFullVarName(current, primarySet));
             first = false;
           } else {
@@ -1565,14 +1465,7 @@ public class ExportToDta implements ITransformFormAction {
           }
           break;
         }
-        /*
-        if(current.getNumChildren() == 0 && the_type!=null){
-          fmtlistMap.putIfAbsent(current.getName(),the_fmt);
-          typelistMap.putIfAbsent(current.getName(),the_type);
-        }else if(current.isRepeatable()){
 
-        }
-        */
         if(b.length()>0){
           fmtlistMap.putIfAbsent(b.toString(),the_fmt);
           typelistMap.putIfAbsent(b.toString(),the_type);
@@ -1648,15 +1541,6 @@ public class ExportToDta implements ITransformFormAction {
     varsMap.put("PARENT_KEY","PARENT_KEY");
     varsMap.put("KEY","KEY");
     varsMap.put("SET-OF-" + group.getName(),"SET-OF-" + group.getName());
-
-
-    /*
-    Map<String,Integer> varsMap = new HashMap<String,Integer>();
-    docVarsMap.put(the_doc,varsMap);
-    varsMap.put("PARENT_KEY",1);
-    varsMap.put("KEY",1);
-    varsMap.put("SET-OF-" + group.getName(),1);
-    */
 
     // Add PARENT_KEY, KEY, SET-OF type and format.
     typelistMap.put("PARENT_KEY","str244");
@@ -1991,21 +1875,6 @@ public class ExportToDta implements ITransformFormAction {
       }
     }
   }
-
-  /**
-   * @Override
-  public FilesSkipped totalFilesSkipped() {
-    //Determine if all files where skipped or just some
-    //Note that if totalInstances = 0 then no files were skipped
-    if (totalInstances == 0 || totalFilesSkipped == 0) {
-      return FilesSkipped.NONE;
-    }
-    if (totalFilesSkipped == totalInstances) {
-      return FilesSkipped.ALL;
-    } else {
-      return FilesSkipped.SOME;
-    }
-  }*/
 
   @Override
   public BriefcaseFormDefinition getFormDefinition() {

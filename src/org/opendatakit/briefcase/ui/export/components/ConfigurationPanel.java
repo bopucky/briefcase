@@ -65,7 +65,8 @@ public class ConfigurationPanel {
         triggerOnChange();
     });
     form.onChangeExportType(exportType -> {
-        configuration.setExportType(exportType);
+      configuration.setExportType(exportType);
+      triggerOnChange();
     });
   }
 

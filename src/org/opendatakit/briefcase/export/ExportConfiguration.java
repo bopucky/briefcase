@@ -23,7 +23,6 @@ import static org.opendatakit.briefcase.ui.MessageStrings.DIR_NOT_EXIST;
 import static org.opendatakit.briefcase.ui.MessageStrings.INVALID_DATE_RANGE_MESSAGE;
 import static org.opendatakit.briefcase.ui.StorageLocation.isUnderBriefcaseFolder;
 import static org.opendatakit.briefcase.util.FileSystemUtils.isUnderODKFolder;
-// DVB
 import static org.opendatakit.briefcase.model.ExportType.CSV;
 
 import java.nio.file.Files;
@@ -43,7 +42,6 @@ import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Stream;
 import org.opendatakit.briefcase.model.BriefcasePreferences;
-// DVB
 import org.opendatakit.briefcase.model.ExportType;
 
 public class ExportConfiguration {
@@ -55,9 +53,7 @@ public class ExportConfiguration {
   private static final String PULL_BEFORE_OVERRIDE = "pullBeforeOverride";
   private static final String OVERWRITE_EXISTING_FILES = "overwriteExistingFiles";
   private static final Predicate<PullBeforeOverrideOption> ALL_EXCEPT_INHERIT = value -> value != INHERIT;
-  // DVB
   private static final String EXPORT_TYPE = "exportType";
-  private static final Predicate<ExportType> ALL_EXCEPT_CSV = value -> value != CSV;
 
   private Optional<Path> exportDir;
   private Optional<Path> pemFile;
@@ -105,7 +101,7 @@ public class ExportConfiguration {
         prefs.nullSafeGet(keyPrefix + PULL_BEFORE).map(Boolean::valueOf),
         prefs.nullSafeGet(keyPrefix + PULL_BEFORE_OVERRIDE).map(PullBeforeOverrideOption::from),
         prefs.nullSafeGet(keyPrefix + OVERWRITE_EXISTING_FILES).map(Boolean::valueOf),
-        prefs.nullSafeGet(EXPORT_TYPE).map(ExportType::from)
+        prefs.nullSafeGet(keyPrefix + EXPORT_TYPE).map(ExportType::from)
     );
   }
 
@@ -141,7 +137,6 @@ public class ExportConfiguration {
     pullBefore.ifPresent(value -> map.put(keyPrefix + PULL_BEFORE, value.toString()));
     pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).ifPresent(value -> map.put(keyPrefix + PULL_BEFORE_OVERRIDE, value.name()));
     overwriteExistingFiles.ifPresent(value -> map.put(keyPrefix + OVERWRITE_EXISTING_FILES, value.toString()));
-    //exportType.filter(ALL_EXCEPT_CSV).ifPresent(value -> map.put(keyPrefix + EXPORT_TYPE, value.name()));
     exportType.ifPresent(value -> map.put(keyPrefix + EXPORT_TYPE, value.name()));
     return map;
   }
@@ -225,7 +220,6 @@ public class ExportConfiguration {
     return this;
   }
 
-  // DVB
   public Optional<ExportType> getExportType() {
     return exportType;
   }
@@ -287,7 +281,7 @@ public class ExportConfiguration {
   public void ifOverwriteExistingFilesPresent(Consumer<Boolean> consumer) {
     overwriteExistingFiles.ifPresent(consumer);
   }
-  // DVB ifExportTypePresent
+
   public void ifExportTypePresent(Consumer<ExportType> consumer) {
     exportType.ifPresent(consumer);
   }
@@ -351,8 +345,8 @@ public class ExportConfiguration {
         && !endDate.isPresent()
         && !pullBefore.isPresent()
         && !pullBeforeOverride.filter(ALL_EXCEPT_INHERIT).isPresent()
-        && !overwriteExistingFiles.isPresent();
-        //&& !exportType.isPresent();
+        && !overwriteExistingFiles.isPresent()
+        && !exportType.isPresent();
   }
 
   public boolean isValid() {
@@ -377,6 +371,10 @@ public class ExportConfiguration {
 
   public <T> Optional<T> mapEndDate(Function<LocalDate, T> mapper) {
     return endDate.map(mapper);
+  }
+
+  public <T> Optional<T> mapExportType(Function<ExportType, T> mapper) {
+    return exportType.map(mapper);
   }
 
   public ExportConfiguration fallingBackTo(ExportConfiguration defaultConfiguration) {

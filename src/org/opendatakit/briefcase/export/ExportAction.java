@@ -80,33 +80,10 @@ public class ExportAction {
           .orElseThrow(() -> new RuntimeException("PEM file not present"))
       ).get());
     }
-    /*ExportToCsv action = new ExportToCsv(
-        terminationFuture,
-        configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
-        formDefinition,
-        formDefinition.getFormName(),
-        true,
-        configuration.getOverwriteExistingFiles().orElse(false),
-        configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
-        configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
-    );*/
 
-    /*ExportToDta action = new ExportToDta(
-        terminationFuture,
-        configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
-        formDefinition,
-        formDefinition.getFormName(),
-        true,
-        false,
-        configuration.mapStartDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null),
-        configuration.mapEndDate((LocalDate ld) -> Date.from(ld.atStartOfDay(ZoneId.systemDefault()).toInstant())).orElse(null)
-    );*/
-
-    ExportToCsv action_csv = null;
-    ExportToDta action_dta = null;
     Object action = null;
     if(configuration.getExportType().isPresent() && configuration.getExportType().get() == ExportType.STATA){
-      // DTA / STATA
+      // DTA - STATA
       action = new ExportToDta(
               terminationFuture,
               configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
@@ -120,6 +97,8 @@ public class ExportAction {
     }
     else if(configuration.getExportType().isPresent() && configuration.getExportType().get() == ExportType.CSV){
       // CSV
+      // 'overwrite' argument should be set to value of configuration.getOverwriteExistingFiles().get() instead of false by default.
+      // however leaving as is until discussion & review with ODK folks
       action = new ExportToCsv(
               terminationFuture,
               configuration.getExportDir().orElseThrow(() -> new RuntimeException("Export dir not present")).toFile(),
@@ -132,28 +111,10 @@ public class ExportAction {
       );
     }
 
-    Method methodExport = null;
-    Method methodDoAction = null;
     Method methodGetFormDefinition = null;
-    Method methodNoneSkipped = null;
-    Method methodSomeSkipped = null;
-    Method methodAllSkipped = null;
     Method method = null;
-    Method method2 = null;
 
     try {
-      /*methodDoAction = action.getClass().getMethod("doAction", (Class<?>[]) null);
-      methodGetFormDefinition = action.getClass().getMethod("getFormDefinition", (Class<?>[]) null);
-      methodNoneSkipped = action.getClass().getMethod("noneSkipped", (Class<?>[]) null);
-      methodSomeSkipped= action.getClass().getMethod("someSkipped", (Class<?>[]) null);
-      methodAllSkipped= action.getClass().getMethod("allSkipped", (Class<?>[]) null);
-
-      boolean allSuccessful = (boolean) methodDoAction.invoke(action, (Object[]) null);
-      BriefcaseFormDefinition formDefinition1 = (BriefcaseFormDefinition) methodGetFormDefinition.invoke(action, (Object[]) null);
-      boolean noneSkipped = (boolean) methodNoneSkipped.invoke(action, (Object[]) null);
-      boolean someSkipped = (boolean) methodSomeSkipped.invoke(action, (Object[]) null);
-      boolean allSkipped = (boolean) methodAllSkipped.invoke(action, (Object[]) null);
-      */
       if(action != null){
         method = action.getClass().getMethod("doAction", (Class<?>[]) null);
         boolean allSuccessful = (boolean) method.invoke(action, (Object[]) null);
@@ -197,26 +158,6 @@ public class ExportAction {
         log.error("export action failed", e);
       }
     }
-
-
-    /*try {
-      boolean allSuccessful = action.doAction();
-
-      if (!allSuccessful)
-        EventBus.publish(new ExportFailedEvent(action.getFormDefinition()));
-
-      if (allSuccessful && action.noneSkipped())
-        EventBus.publish(new ExportSucceededEvent(action.getFormDefinition()));
-
-      if (allSuccessful && action.someSkipped())
-        EventBus.publish(new ExportSucceededWithErrorsEvent(action.getFormDefinition()));
-
-      if (allSuccessful && action.allSkipped())
-        EventBus.publish(new ExportFailedEvent(action.getFormDefinition()));
-    } catch (Exception e) {
-      log.error("export action failed", e);
-      EventBus.publish(new ExportFailedEvent(action.getFormDefinition()));
-    }*/
   }
 
 }
